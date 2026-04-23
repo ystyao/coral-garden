@@ -1,0 +1,21 @@
+# Local secrets — never commit. Any *.local.js is treated as a machine-local
+# config file (Oura PAT, future OAuth secrets, personal overrides).
+*.local.js
+
+# Dependencies (if/when Vite is added)
+node_modules/
+dist/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# Exclude the ~488MB of original source GLBs in assets/ root.
+# The compressed versions live in assets/models/ and assets/hokora_opt.glb;
+# those are what the app actually loads. Anyone cloning the repo can
+# regenerate these source files by re-downloading from the original sources
+# (see README "Acknowledgments"). Required because xenia.glb is 193MB,
+# well over GitHub's 100MB single-file hard limit.
+assets/*.glb
+!assets/hokora_opt.glb

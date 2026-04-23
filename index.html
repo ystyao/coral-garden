@@ -1,0 +1,5076 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<title>Coral Garden · A Garden of Living Data</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;400;500&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1410;
+    --bone: #f4ede0;
+    --warm-white: #faf5ea;
+    --seal: #8b2a1f;
+    --seal-deep: #5c1a12;
+    --gold: #d4b576;      /* warmer, brighter for better contrast */
+    --gold-deep: #8a6a3a;
+    --jade: #4a6b5a;
+    --deep: #0a1f28;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+  body {
+    font-family: 'Noto Serif SC', 'Cormorant Garamond', serif;
+    color: var(--bone);
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  #canvas-container { position: fixed; inset: 0; z-index: 1; }
+  canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+
+  /* ═══ focus mode (when writing) ═══ */
+  body.focus-mode #canvas-container {
+    filter: blur(8px) brightness(0.5) saturate(0.8);
+    transition: filter 0.8s;
+  }
+  body:not(.focus-mode) #canvas-container {
+    transition: filter 0.8s;
+  }
+
+  /* ═══ title ═══ */
+  .title-bar {
+    position: fixed; top: 22px; left: 0; right: 0; z-index: 10;
+    text-align: center; pointer-events: none;
+  }
+  .title-bar .zh {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: 28px; letter-spacing: 0.5em;
+    color: var(--bone);
+    text-shadow: 0 2px 24px rgba(0,0,0,0.9);
+    opacity: 0.88;
+    text-transform: uppercase;
+  }
+  .title-bar .en {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-weight: 300;
+    font-size: 11px; letter-spacing: 0.45em;
+    margin-top: 6px; opacity: 0.55;
+    text-transform: none;
+  }
+
+  /* ═══ date & time panel (top-left) ═══ */
+  .date-panel {
+    position: fixed; top: 24px; left: 24px; z-index: 10;
+    background: rgba(10, 20, 28, 0.55);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    border: 1px solid rgba(212,181,118, 0.22);
+    padding: 14px 18px;
+    font-size: 11px;
+  }
+  .date-panel .label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 9px; color: var(--gold);
+    letter-spacing: 0.4em; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .date-panel .value {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 18px; color: var(--bone);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+  }
+  .date-panel .phase {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 11px; color: rgba(212,181,118,0.85);
+    letter-spacing: 0.3em; margin-top: 3px;
+  }
+  .date-panel .current-view {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid rgba(212,181,118,0.15);
+    font-size: 10px; color: rgba(244,237,224,0.6);
+    letter-spacing: 0.15em;
+  }
+  .date-panel .current-view strong {
+    color: var(--bone); font-weight: 400;
+  }
+  .date-panel .time-mode-btn {
+    margin-top: 10px;
+    width: 100%;
+    padding: 7px 10px;
+    background: transparent;
+    border: 1px solid rgba(212,181,118,0.3);
+    color: rgba(212,181,118,0.9);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  .date-panel .time-mode-btn:hover {
+    background: rgba(212,181,118,0.08);
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+  .date-panel .time-mode-btn.active {
+    background: rgba(80,60,140,0.25);
+    color: #dcd0f0;
+    border-color: rgba(180,160,220,0.5);
+  }
+
+  /* ═══ today's data panel (top-right) ═══ */
+  .bio-panel {
+    position: fixed; top: 24px; right: 24px; z-index: 10;
+    width: 260px;
+    background: rgba(10, 20, 28, 0.55);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    border: 1px solid rgba(212,181,118, 0.22);
+    padding: 18px 18px 14px;
+  }
+  .bio-panel h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 10px; letter-spacing: 0.4em;
+    color: var(--gold); text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .bio-panel .sub {
+    font-size: 10px; color: rgba(244,237,224,0.7);
+    letter-spacing: 0.25em; margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(212,181,118,0.12);
+  }
+  .metric-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px; padding: 7px 0;
+    font-size: 11px;
+    border-bottom: 1px solid rgba(212,181,118,0.06);
+  }
+  .metric-row:last-child { border-bottom: none; }
+  .metric-row .name {
+    color: rgba(244,237,224,0.8);
+    letter-spacing: 0.1em;
+  }
+  .metric-row .name .lat {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 9px;
+    color: rgba(212,181,118,0.65); margin-left: 4px;
+  }
+  .metric-row .val {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px; color: var(--bone);
+    font-variant-numeric: tabular-nums;
+  }
+  .mock-controls {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid rgba(212,181,118,0.12);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .mock-controls button {
+    width: 100%; padding: 7px;
+    background: transparent;
+    border: 1px solid rgba(212,181,118,0.3);
+    color: rgba(212,181,118,0.9); cursor: pointer;
+    font-family: inherit; font-size: 10px;
+    letter-spacing: 0.3em; text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  .mock-controls button:hover {
+    background: rgba(212,181,118,0.08); color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  /* ═══ info modals (interaction guide, coral mapping) ═══ */
+  .info-modal {
+    width: 640px; max-width: 92vw;
+    max-height: 82vh; overflow-y: auto;
+    background: rgba(18, 12, 8, 0.96);
+    color: rgba(244, 237, 224, 0.88);
+    padding: 32px 40px 28px;
+    border: 1px solid rgba(212, 181, 118, 0.25);
+    box-shadow: 0 28px 80px rgba(0,0,0,0.6);
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .modal-overlay.show .info-modal { transform: scale(1) translateY(0); }
+  .info-modal .title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 24px; letter-spacing: 0.06em;
+    color: var(--gold);
+    margin-bottom: 2px;
+  }
+  .info-modal .en {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 11px;
+    color: rgba(212,181,118,0.6);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 22px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(212,181,118,0.18);
+  }
+  .info-modal h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px; font-weight: 400;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 20px 0 8px;
+  }
+  .info-modal p, .info-modal li {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px; line-height: 1.6;
+    color: rgba(244, 237, 224, 0.82);
+  }
+  .info-modal ul { padding-left: 18px; margin: 4px 0 14px; }
+  .info-modal li { margin-bottom: 4px; }
+  .info-modal .coral-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 20px;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(212,181,118,0.12);
+    align-items: center;
+  }
+  .info-modal .coral-row:last-child { border-bottom: none; }
+  .info-modal .coral-row .species {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    color: rgba(244, 237, 224, 0.95);
+  }
+  .info-modal .coral-row .species em {
+    font-style: italic;
+    color: rgba(212,181,118,0.75);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    display: block;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .info-modal .coral-row .mapping {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px;
+    color: rgba(244, 237, 224, 0.72);
+    line-height: 1.55;
+  }
+  .info-modal .coral-row .swatch {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border-radius: 2px;
+    margin-right: 3px;
+    vertical-align: middle;
+    border: 1px solid rgba(0,0,0,0.3);
+  }
+  .info-modal .arrow {
+    color: rgba(212,181,118,0.5);
+    margin: 0 4px;
+  }
+  .info-modal .close {
+    margin-top: 22px; width: 100%;
+    padding: 12px; background: transparent;
+    border: 1px solid rgba(212,181,118,0.3);
+    color: rgba(212,181,118,0.9); cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  .info-modal .close:hover {
+    background: rgba(212,181,118,0.08);
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+  .mock-controls button.primary {
+    border-color: rgba(212,181,118,0.55);
+    color: var(--gold);
+  }
+  .bio-panel .bio-source {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    color: rgba(244,237,224,0.45);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .bio-panel .bio-source.live { color: var(--jade, #7aa098); }
+  .bio-panel .bio-source.error { color: #c87878; }
+
+  /* ═══ oura modal — token entry ═══ */
+  .oura-modal {
+    width: 460px; max-width: 92vw;
+    background: #fcfbf7;
+    color: #1a1410;
+    padding: 30px 36px 24px 36px;
+    box-shadow: 0 28px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.08);
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .modal-overlay.show .oura-modal { transform: scale(1) translateY(0); }
+  .oura-modal .title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px; letter-spacing: 0.04em;
+    color: #2a1a15; margin-bottom: 2px;
+  }
+  .oura-modal .en {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 11px;
+    color: #6a4a38; letter-spacing: 0.3em;
+    text-transform: uppercase; margin-bottom: 18px;
+  }
+  .oura-modal .prompt {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13px; line-height: 1.5;
+    color: rgba(42,26,21,0.72); margin-bottom: 12px;
+  }
+  .oura-modal .prompt a { color: #6a4a38; }
+  .oura-modal input {
+    width: 100%; box-sizing: border-box;
+    padding: 10px 12px; font-family: 'Cormorant Garamond', serif;
+    font-size: 14px; letter-spacing: 0.04em;
+    border: 1px solid rgba(42,26,21,0.2);
+    background: rgba(42,26,21,0.03);
+    color: #1a1410; outline: none;
+  }
+  .oura-modal input:focus {
+    border-color: rgba(42,26,21,0.45);
+    background: rgba(42,26,21,0.05);
+  }
+  .oura-modal .error {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px; color: #c84848;
+    margin-top: 10px; line-height: 1.4;
+  }
+  .oura-modal .progress {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12px; font-style: italic;
+    color: rgba(42,26,21,0.6);
+    margin-top: 10px;
+  }
+  .oura-modal .actions {
+    display: flex; gap: 10px; margin-top: 18px;
+  }
+  .oura-modal .actions button {
+    flex: 1; padding: 10px;
+    background: transparent;
+    border: 1px solid rgba(42,26,21,0.25);
+    color: #2a1a15; cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  .oura-modal .actions button.primary {
+    background: #2a1a15;
+    border-color: #2a1a15;
+    color: #fcfbf7;
+  }
+  .oura-modal .actions button:disabled {
+    opacity: 0.5; cursor: wait;
+  }
+  .oura-modal .actions button:hover:not(:disabled) {
+    background: #2a1a15; color: #fcfbf7; border-color: #2a1a15;
+  }
+
+  /* ═══ shrine indicator (bottom-right) — info about clicking the hokora ═══ */
+  .shrine-indicator {
+    position: fixed; bottom: 24px; right: 24px; z-index: 10;
+    max-width: 200px;
+    background: rgba(10, 20, 28, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(212,181,118, 0.3);
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+    pointer-events: none;
+  }
+  .shrine-indicator .glyph {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 22px; color: var(--seal);
+    line-height: 1;
+  }
+  .shrine-indicator .lbl {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px; letter-spacing: 0.1em;
+    color: rgba(244,237,224,0.75);
+    line-height: 1.4;
+  }
+
+  /* ═══ nav pad (bottom-center) — move the camera forward/back/left/right ═══ */
+  .nav-pad {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%); z-index: 10;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .nav-pad .nav-row {
+    display: flex; gap: 4px;
+  }
+  .nav-btn {
+    width: 40px; height: 40px;
+    background: rgba(10, 20, 28, 0.6);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(212,181,118, 0.3);
+    color: rgba(244,237,224,0.8);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    font-family: inherit;
+    padding: 0;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    background: rgba(212,181,118,0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .nav-btn.reset {
+    color: rgba(212,181,118,0.7);
+    font-size: 18px;
+  }
+
+  /* ═══ bottle hint (bottom-left) ═══ */
+  .bottle-hint {
+    position: fixed; bottom: 24px; left: 24px; z-index: 10;
+    background: rgba(10, 20, 28, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(212,181,118, 0.22);
+    padding: 12px 16px; font-size: 10px;
+    color: rgba(244,237,224,0.7);
+    letter-spacing: 0.12em; max-width: 280px;
+  }
+  .bottle-hint .label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 9px; color: var(--gold);
+    letter-spacing: 0.4em; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .bottle-hint .text { line-height: 1.6; }
+  .bottle-hint.done .text::before { content: '✓ '; color: var(--jade); }
+
+  /* ═══ modals (shared) ═══ */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: none;
+    align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.5s;
+  }
+  .modal-overlay.show { display: flex; opacity: 1; }
+
+
+  /* ═══ omikuji — traditional Japanese shrine card ═══ */
+  .omikuji {
+    width: 780px; max-width: 94vw;
+    min-height: 460px;
+    background: #f4ecd8;   /* aged rice paper */
+    color: #1a1410;
+    padding: 0;
+    position: relative;
+    box-shadow: 0 30px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.1);
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1);
+    display: flex; flex-direction: column;
+    /* subtle paper texture via gradients */
+    background-image:
+      radial-gradient(ellipse at 20% 15%, rgba(80,40,20,0.04) 0%, transparent 15%),
+      radial-gradient(ellipse at 78% 82%, rgba(80,40,20,0.03) 0%, transparent 12%),
+      radial-gradient(ellipse at 55% 50%, rgba(120,80,40,0.02) 0%, transparent 30%);
+  }
+  .modal-overlay.show .omikuji { transform: scale(1) translateY(0); }
+
+  /* Header: black box with rank inside, like "第一 大吉" */
+  .omikuji-header {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 3px solid #1a1410;
+  }
+  .omikuji-header .rank-box {
+    background: #1a1410;
+    color: #f4ecd8;
+    padding: 22px 56px;
+    font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif;
+    font-size: 52px;
+    letter-spacing: 0.3em;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+  .omikuji-header .rank-romaji {
+    flex: 1;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 18px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #4a3028;
+  }
+
+  /* Main body: 6 columns, right-to-left reading order */
+  .omikuji-body {
+    display: flex;
+    flex-direction: row-reverse;  /* right-to-left column order */
+    border-top: 1px solid #1a1410;
+    border-bottom: 1px solid #1a1410;
+    min-height: 340px;
+  }
+  .omikuji-col {
+    flex: 1;
+    border-left: 1px solid #1a1410;
+    padding: 20px 10px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+  .omikuji-col:last-child {  /* last in DOM = leftmost visually */
+    border-left: none;
+  }
+
+  /* Poem columns: vertical kanji */
+  .omikuji-col.poem-col {
+    writing-mode: vertical-rl;
+    -ms-writing-mode: tb-rl;
+    text-orientation: mixed;
+    font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif;
+    font-size: 28px;
+    letter-spacing: 0.35em;
+    color: #1a1410;
+    line-height: 1.1;
+    padding: 24px 14px;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .omikuji-col.poem-col .line {
+    display: block;
+    padding-top: 10px;
+  }
+
+  /* English interp column: horizontal, wider */
+  .omikuji-col.interp-col {
+    writing-mode: horizontal-tb;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+    color: #3a2418;
+    line-height: 1.7;
+    padding: 24px 16px;
+    text-align: left;
+    justify-content: center;
+    align-items: flex-start;
+    flex: 1.8;   /* wider than a single poem column */
+  }
+
+  /* Date column: horizontal English (leftmost) */
+  .omikuji-col.date-col {
+    writing-mode: horizontal-tb;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    color: #3a2418;
+    padding: 24px 16px;
+    justify-content: space-between;
+    flex: 1.3;
+  }
+  .omikuji-col.date-col .date-label {
+    font-style: italic;
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #6a4a38;
+    margin-bottom: 6px;
+  }
+  .omikuji-col.date-col .date-value {
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    color: #1a1410;
+    margin-bottom: 20px;
+  }
+  .omikuji-col.date-col .day-num {
+    margin-top: auto;
+    writing-mode: horizontal-tb;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #6a4a38;
+    font-style: italic;
+    padding: 10px 0 0;
+  }
+
+  /* Loading state: soft pulsing dots in poem area */
+  .omikuji.loading .omikuji-body {
+    min-height: 340px;
+  }
+  .omikuji-col .loading-text,
+  .omikuji > .loading-text {
+    writing-mode: horizontal-tb;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: rgba(26,20,16,0.5);
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    text-align: center;
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    background: rgba(244,236,216,0.85);
+    padding: 10px 24px;
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  /* Footer: back button + close button */
+  .omikuji-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px 20px;
+    border-top: 2px solid #1a1410;
+  }
+  .omikuji-footer button {
+    background: transparent;
+    border: none;
+    color: #3a2418;
+    cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    letter-spacing: 0.3em;
+    padding: 6px 16px;
+    transition: all 0.2s;
+  }
+  .omikuji-footer button:hover {
+    color: #1a1410;
+    letter-spacing: 0.4em;
+  }
+  .omikuji-footer .footer-sep {
+    color: rgba(58,36,24,0.35);
+    margin: 0 6px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+  }
+
+  /* ═══ rank guide — rice-paper modal matching the omikuji card ═══ */
+  .rank-guide {
+    width: 640px; max-width: 94vw;
+    max-height: 88vh;
+    background: #f4ecd8;
+    color: #1a1410;
+    padding: 0;
+    display: flex; flex-direction: column;
+    box-shadow: 0 30px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.1);
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1);
+    background-image:
+      radial-gradient(ellipse at 20% 15%, rgba(80,40,20,0.04) 0%, transparent 15%),
+      radial-gradient(ellipse at 78% 82%, rgba(80,40,20,0.03) 0%, transparent 12%),
+      radial-gradient(ellipse at 55% 50%, rgba(120,80,40,0.02) 0%, transparent 30%);
+    position: relative;
+    overflow: hidden;
+  }
+  .modal-overlay.show .rank-guide { transform: scale(1) translateY(0); }
+  .rank-header {
+    padding: 26px 40px 18px;
+    border-bottom: 2px solid #1a1410;
+    text-align: center;
+  }
+  .rank-title {
+    font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif;
+    font-size: 34px;
+    color: #2a1410;
+    letter-spacing: 0.3em;
+    line-height: 1.1;
+  }
+  .rank-title-en {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: rgba(58,36,24,0.65);
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    margin-top: 10px;
+  }
+  .rank-body {
+    padding: 22px 40px 14px;
+    overflow-y: auto;
+  }
+  .rank-intro, .rank-note {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: rgba(42,26,21,0.8);
+    font-style: italic;
+  }
+  .rank-intro { margin: 0 0 18px; }
+  .rank-note  { margin: 18px 0 0; padding-top: 16px; border-top: 1px dashed rgba(58,36,24,0.25); }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    align-items: baseline;
+    gap: 20px;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(58,36,24,0.2);
+  }
+  .rank-row:last-of-type { border-bottom: none; }
+  .rank-cn {
+    font-family: 'Ma Shan Zheng', 'Noto Serif SC', serif;
+    font-size: 30px;
+    letter-spacing: 0.2em;
+    line-height: 1;
+  }
+  .rank-meta {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    color: rgba(42,26,21,0.85);
+    letter-spacing: 0.05em;
+  }
+  .rank-meta em {
+    font-style: italic;
+    color: rgba(58,36,24,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    font-size: 11px;
+    margin-right: 4px;
+  }
+  .rank-range {
+    font-family: 'Cormorant Garamond', serif;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    color: #3a2418;
+    letter-spacing: 0.1em;
+  }
+
+  /* ═══ lantern guidance — speech-bubble sticky note ═══ */
+  /* The shape is painted by the <svg class="bubble-bg"> child in a single
+     closed path (main bubble + drop tail), so there are no stitched-seam
+     artifacts and the stroke is a perfectly smooth outline. */
+  .lantern-card {
+    width: 580px; max-width: 92vw;
+    aspect-ratio: 6 / 5;
+    color: #1a1008;
+    display: flex; flex-direction: column;
+    position: relative;
+    background: transparent;
+    filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.35))
+            drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.7s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .modal-overlay.show .lantern-card { transform: scale(1) translateY(0); }
+
+  .lantern-card .bubble-bg {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .lantern-card > :not(.bubble-bg) {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Content lives inside the upper portion of the viewBox — the bottom
+     ~25% of the .lantern-card is tail + empty space that must stay clear. */
+  .lantern-header {
+    padding: 10% 12% 2%;
+    text-align: center;
+  }
+  .lantern-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: 26px;
+    color: #1a1008;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+  }
+  .lantern-title-en {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    color: rgba(26, 16, 8, 0.55);
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    margin-top: 8px;
+  }
+  .lantern-body {
+    padding: 6px 12% 0;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+  .lantern-section-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    color: rgba(26, 16, 8, 0.5);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .lantern-text {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: #1a1008;
+    letter-spacing: 0.015em;
+    white-space: pre-wrap;
+  }
+  .lantern-text.tale {
+    font-style: italic;
+    color: rgba(26, 16, 8, 0.82);
+  }
+  .lantern-divider {
+    margin: 14px 0 10px;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(26, 16, 8, 0.25) 50%,
+      transparent 100%
+    );
+  }
+  .lantern-loading {
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: rgba(26, 16, 8, 0.55);
+    padding: 20px;
+  }
+  /* Footer stays inside the main bubble body — above the tail protrusion */
+  .lantern-card .omikuji-footer {
+    padding: 2px 12% 26% 12%;
+    background: transparent;
+    border-top: none;
+    justify-content: center;
+  }
+  .lantern-card .omikuji-footer button {
+    color: #1a1008;
+    font-size: 11px;
+  }
+  .lantern-card .omikuji-footer button:hover {
+    color: #000000;
+  }
+
+  /* Mobile: simpler layout */
+  @media (max-width: 720px) {
+    .omikuji { width: 92vw; min-height: auto; }
+    .omikuji-header .rank-box { font-size: 24px; padding: 10px 20px; }
+    .omikuji-header .rank-romaji { font-size: 12px; padding: 8px 14px; }
+    .omikuji-col.poem-col { font-size: 20px; padding: 16px 8px; }
+    .omikuji-col.interp-col { font-size: 11px; padding: 18px 10px; }
+    .omikuji-col.date-col { padding: 16px 10px; }
+  }
+
+  /* ═══ bottle writer ═══ */
+  /* ═══ bottle writer — ruled notebook paper ═══ */
+  .bottle-writer {
+    width: 560px; max-width: 92vw;
+    background: #fcfbf7;
+    color: #1a1410;
+    padding: 30px 40px 28px 70px;
+    position: relative;
+    box-shadow: 0 28px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.08);
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .modal-overlay.show .bottle-writer { transform: scale(1) translateY(0); }
+
+  /* Red margin line (vertical) */
+  .bottle-writer::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 54px;
+    width: 1px;
+    background: #e85a6a;
+    opacity: 0.65;
+    pointer-events: none;
+  }
+  /* Three hole punches on left edge */
+  .bottle-writer::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 14px;
+    width: 14px; height: 100%;
+    background-image:
+      radial-gradient(circle at 50% 12%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.15) 7px, transparent 7.5px),
+      radial-gradient(circle at 50% 50%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.15) 7px, transparent 7.5px),
+      radial-gradient(circle at 50% 88%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.15) 7px, transparent 7.5px);
+    pointer-events: none;
+  }
+
+  .bottle-writer .header {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 2px;
+    border-bottom: none;
+  }
+  .bottle-writer .header .title {
+    font-family: 'Caveat', cursive;
+    font-weight: 500;
+    font-size: 28px; letter-spacing: 0.02em;
+    color: #2a1a15;
+  }
+  .bottle-writer .header .en {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 11px;
+    color: #6a4a38; letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .bottle-writer .meta {
+    font-family: 'Caveat', cursive;
+    font-size: 16px; color: #6a4a38;
+    letter-spacing: 0.04em; margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed rgba(42,26,21,0.2);
+  }
+  .bottle-writer .prompt {
+    font-family: 'Caveat', cursive;
+    font-size: 18px; color: rgba(42,26,21,0.55);
+    line-height: 1.4;
+    margin-bottom: 14px;
+    letter-spacing: 0.02em;
+  }
+  /* Textarea: ruled lines are in THIS element's background, not the container */
+  .bottle-writer textarea {
+    display: block;
+    width: 100%; min-height: 240px;
+    /* ruled lines — each line is 32px tall; line drawn at 31-32px */
+    background-color: transparent;
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 31px,
+        #a8c8e0 31px,
+        #a8c8e0 32px
+      );
+    border: none;
+    color: #1a1410;
+    font-family: 'Caveat', cursive;
+    font-size: 22px;
+    /* CRITICAL: line-height must equal ruled line spacing */
+    line-height: 32px;
+    padding: 0;
+    resize: vertical;
+    outline: none;
+    letter-spacing: 0.01em;
+    /* ensure text baseline sits on the line: padding-top = 0, font's natural descent sits above line */
+  }
+  .bottle-writer textarea::placeholder {
+    color: rgba(42,26,21,0.3);
+    font-style: italic;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+  }
+  .bottle-writer .count {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px; color: rgba(42,26,21,0.5);
+    text-align: right; margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+    font-style: italic;
+  }
+  .bottle-writer .count.over { color: #c84848; }
+  .bottle-writer .actions {
+    display: flex; gap: 10px; margin-top: 18px;
+  }
+  .bottle-writer .actions button {
+    flex: 1; padding: 11px;
+    background: transparent;
+    border: 1px solid rgba(42,26,21,0.25);
+    color: #2a1a15; cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  .bottle-writer .actions button.primary {
+    background: #2a1a15;
+    border-color: #2a1a15;
+    color: #fcfbf7;
+  }
+  .bottle-writer .actions button:hover {
+    background: #2a1a15;
+    color: #fcfbf7;
+    border-color: #2a1a15;
+  }
+  .bottle-writer .actions button.primary:hover {
+    background: #4a3228;
+    border-color: #4a3228;
+  }
+
+  /* ═══ bottle reader ═══ */
+  /* ═══ bottle reader — ruled notebook paper (matches writer) ═══ */
+  .bottle-reader {
+    width: 560px; max-width: 92vw;
+    background: #fcfbf7;
+    color: #1a1410;
+    padding: 30px 40px 28px 70px;
+    position: relative;
+    box-shadow: 0 28px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.08);
+    transform: scale(0.94) translateY(20px);
+    transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  .modal-overlay.show .bottle-reader { transform: scale(1) translateY(0); }
+  /* Red margin line */
+  .bottle-reader::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    left: 54px;
+    width: 1px;
+    background: #e85a6a;
+    opacity: 0.65;
+    pointer-events: none;
+  }
+  /* Three hole punches */
+  .bottle-reader::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 14px;
+    width: 14px; height: 100%;
+    background-image:
+      radial-gradient(circle at 50% 12%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.15) 7px, transparent 7.5px),
+      radial-gradient(circle at 50% 50%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.15) 7px, transparent 7.5px),
+      radial-gradient(circle at 50% 88%, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.15) 7px, transparent 7.5px);
+    pointer-events: none;
+  }
+
+  .bottle-reader .date-stamp {
+    font-family: 'Caveat', cursive;
+    font-size: 20px; color: #6a4a38;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+    position: relative;
+  }
+  .bottle-reader .lunar {
+    font-family: 'Caveat', cursive;
+    font-size: 17px; color: rgba(42,26,21,0.55);
+    letter-spacing: 0.02em;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed rgba(42,26,21,0.2);
+    position: relative;
+  }
+  /* Body text — this is where the ruled lines live */
+  .bottle-reader .body-text {
+    background-color: transparent;
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 31px,
+        #a8c8e0 31px,
+        #a8c8e0 32px
+      );
+    font-family: 'Caveat', cursive;
+    font-size: 22px;
+    line-height: 32px;
+    color: #1a1410;
+    letter-spacing: 0.01em;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    position: relative;
+    min-height: 128px;
+    padding: 0;
+  }
+  .bottle-reader .resonance {
+    margin-top: 20px; padding-top: 14px;
+    border-top: 1px dashed rgba(42,26,21,0.2);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 12px;
+    color: rgba(42,26,21,0.7);
+    line-height: 1.7;
+    position: relative;
+  }
+  .bottle-reader .resonance .tag {
+    display: inline-block; padding: 2px 8px;
+    background: rgba(42,26,21,0.06);
+    color: #2a1a15; font-style: normal;
+    font-size: 10px; letter-spacing: 0.3em;
+    text-transform: uppercase; margin-right: 8px;
+    border: 1px solid rgba(42,26,21,0.2);
+  }
+  .bottle-reader .reader-actions {
+    display: flex; gap: 10px; margin-top: 20px;
+  }
+  .bottle-reader .reader-actions button {
+    flex: 1; padding: 11px;
+    background: transparent;
+    border: 1px solid rgba(42,26,21,0.25);
+    color: #2a1a15; cursor: pointer;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    transition: all 0.3s;
+  }
+  .bottle-reader .reader-actions button:hover {
+    background: #2a1a15;
+    color: #fcfbf7;
+    border-color: #2a1a15;
+  }
+  .bottle-reader .reader-edit { letter-spacing: 0.2em; }
+  /* Hide edit button for locked past bottles */
+  .bottle-reader.locked .reader-edit { display: none; }
+
+  /* ═══ loading ═══ */
+  .loading-screen {
+    position: fixed; inset: 0; z-index: 1000;
+    background: #000; display: flex;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    transition: opacity 1.2s;
+  }
+  .loading-screen.hide { opacity: 0; pointer-events: none; }
+  .loading-screen .mark {
+    font-family: 'Ma Shan Zheng', cursive;
+    font-size: 56px; color: var(--gold);
+    letter-spacing: 0.4em;
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+  .loading-screen .sub {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic; font-size: 10px;
+    color: rgba(212,181,118,0.6);
+    letter-spacing: 0.5em; margin-top: 20px;
+    text-transform: uppercase;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.35; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.04); }
+  }
+
+  /* ═══ hokora model progress ═══ */
+  .hokora-progress {
+    position: fixed;
+    left: 50%; bottom: 56px;
+    transform: translateX(-50%);
+    z-index: 900;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    padding: 12px 26px;
+    background: rgba(18, 12, 8, 0.72);
+    border: 1px solid rgba(212, 181, 118, 0.28);
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+    transition: opacity 0.8s ease;
+  }
+  .hokora-progress.hide { opacity: 0; }
+  .hokora-progress .label {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px; letter-spacing: 0.3em;
+    color: rgba(244, 237, 224, 0.82);
+    text-transform: uppercase;
+  }
+  .hokora-progress .track {
+    width: 240px; height: 2px;
+    background: rgba(244, 237, 224, 0.12);
+    overflow: hidden;
+  }
+  .hokora-progress .bar {
+    height: 100%; width: 0%;
+    background: var(--gold);
+    transition: width 0.15s linear;
+  }
+
+  /* ═══ tooltip ═══ */
+  .tooltip {
+    position: fixed; z-index: 50;
+    background: rgba(10, 20, 28, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(212,181,118, 0.3);
+    padding: 10px 14px;
+    font-size: 11px; color: var(--bone);
+    letter-spacing: 0.1em;
+    pointer-events: none; opacity: 0;
+    transition: opacity 0.2s;
+    max-width: 240px;
+    transform: translate(-50%, -110%);
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .date {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 10px; color: var(--gold);
+    letter-spacing: 0.3em; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .tooltip .hint {
+    font-size: 10px; color: rgba(244,237,224,0.6);
+    margin-top: 4px; font-style: italic;
+  }
+
+  /* ═══ mobile ═══ */
+  @media (max-width: 768px) {
+    .bio-panel { width: 200px; top: 80px; right: 12px; padding: 12px 14px; }
+    .date-panel { top: 80px; left: 12px; padding: 10px 14px; }
+    .title-bar .zh { font-size: 22px; letter-spacing: 0.3em; }
+    .shrine-indicator { max-width: 160px; bottom: 12px; right: 12px; padding: 10px 12px; }
+    .bottle-hint { bottom: 12px; left: 12px; font-size: 9px; max-width: 200px; padding: 8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loading">
+  <div class="mark">◈</div>
+  <div class="sub" id="loading-sub">settling into the reef</div>
+</div>
+
+<div id="canvas-container"></div>
+
+<div class="title-bar">
+  <div class="zh">THE CORAL GARDEN</div>
+  <div class="en">A Deep-Sea Microhabitat Resonating with Body Rhythms</div>
+</div>
+
+<div class="date-panel">
+  <div class="label">Garden Time</div>
+  <div class="value" id="current-time">—</div>
+  <div class="phase" id="time-phase">—</div>
+  <div class="current-view">
+    Viewing <strong id="view-date">today</strong>
+  </div>
+  <button class="time-mode-btn" id="night-mode-btn" title="Toggle night mode for demo">☾ NIGHT MODE</button>
+</div>
+
+<div class="bio-panel">
+  <h2><span id="bio-date-label">Today</span> · <span id="bio-date" style="color:rgba(244,237,224,0.7)">—</span></h2>
+  <div class="sub">Sediment of the body</div>
+  <div class="bio-source" id="bio-source">mock reading</div>
+  <div id="metrics"></div>
+  <div class="mock-controls">
+    <button id="oura-btn" class="primary">◈ CONNECT OURA</button>
+    <button id="interaction-guide-btn">◈ INTERACTION GUIDE</button>
+    <button id="coral-mapping-btn">◈ CORAL MAPPING</button>
+  </div>
+</div>
+
+<!-- Oura PAT entry modal -->
+<div class="modal-overlay" id="oura-overlay">
+  <div class="oura-modal">
+    <div class="title">Connect Oura Ring</div>
+    <div class="en">Personal Access Token</div>
+    <div class="prompt">
+      Paste a Personal Access Token from
+      <a href="https://cloud.ouraring.com/personal-access-tokens" target="_blank" rel="noopener">cloud.ouraring.com/personal-access-tokens</a>.
+      Stored only in this browser's localStorage — never transmitted elsewhere.
+    </div>
+    <input type="password" id="oura-token-input" placeholder="OURA_V2_..." autocomplete="off" />
+    <div class="error" id="oura-error" style="display:none"></div>
+    <div class="progress" id="oura-progress" style="display:none">Fetching last 30 days…</div>
+    <div class="actions">
+      <button id="oura-cancel">Cancel</button>
+      <button class="primary" id="oura-save">Fetch last 30 days</button>
+    </div>
+  </div>
+</div>
+
+<!-- Interaction Guide modal -->
+<div class="modal-overlay" id="interaction-overlay">
+  <div class="info-modal">
+    <div class="title">Interaction Guide</div>
+    <div class="en">How to navigate the reef</div>
+
+    <h3>Navigation</h3>
+    <ul>
+      <li>Drag the scene to rotate the view.</li>
+      <li>Scroll to zoom in and out.</li>
+      <li>Use the on-screen arrow pad (bottom centre) or WASD / arrow keys to pan the camera.</li>
+      <li>Double-click a coral cluster to dive to it.</li>
+      <li>Double-click empty water to return to the default view.</li>
+    </ul>
+
+    <h3>The Hokora Shrine</h3>
+    <p>
+      Click the <span style="color:var(--gold)">Hokora</span> at the downstream end of the river to draw today's
+      <em>omikuji</em> — a daily fortune poem woven from your biometrics. One reading per day;
+      revisiting the shrine shows the same poem.
+    </p>
+
+    <h3>The Drifting Bottles</h3>
+    <p>
+      A bottle rests beside each day's coral cluster. Click today's glowing bottle to write a short message.
+      Past bottles are read-only — the body has already sealed them. Today's bottle can be re-opened
+      within the day to add new thoughts; once midnight passes, it seals.
+    </p>
+
+    <button class="close" id="interaction-close">Close</button>
+  </div>
+</div>
+
+<!-- Coral Mapping modal -->
+<div class="modal-overlay" id="mapping-overlay">
+  <div class="info-modal">
+    <div class="title">Body → Coral Mapping</div>
+    <div class="en">How biometrics grow each coral</div>
+
+    <p style="margin-bottom: 18px;">
+      Every cluster holds seven corals. Each species reflects one biometric dimension through
+      its <strong>size</strong> (scale) and <strong>colour</strong> (hue → saturation → lightness).
+      The overall <strong>cluster size</strong> is driven by the day's readiness score.
+    </p>
+
+    <div class="coral-row">
+      <div class="species">Favia <em>brain coral</em></div>
+      <div class="mapping">
+        <strong>Sleep Score</strong> · 58–92<br>
+        <span class="swatch" style="background:#8ab4a8"></span>sage teal
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#f0d870"></span>honey yellow
+      </div>
+    </div>
+    <div class="coral-row">
+      <div class="species">Gorgonia <em>sea fan · soft coral</em></div>
+      <div class="mapping">
+        <strong>HRV</strong> · 35–80 ms<br>
+        <span class="swatch" style="background:#9c9cc8"></span>lavender grey
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#f0b0d0"></span>cherry pink<br>
+        <em style="color:rgba(212,181,118,0.6)">sways with the current</em>
+      </div>
+    </div>
+    <div class="coral-row">
+      <div class="species">Xenia <em>pulsating soft coral</em></div>
+      <div class="mapping">
+        <strong>Resting HR</strong> · 48–80 bpm (inverse)<br>
+        <span class="swatch" style="background:#88cabf"></span>lake jade
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#f5bc98"></span>peach<br>
+        <em style="color:rgba(212,181,118,0.6)">pulses at RHR / 60 Hz; centre of cluster</em>
+      </div>
+    </div>
+    <div class="coral-row">
+      <div class="species">Acropora <em>staghorn coral</em></div>
+      <div class="mapping">
+        <strong>Activity Score</strong> · 40–95<br>
+        <span class="swatch" style="background:#d8e088"></span>tender lime
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#f8a890"></span>soft coral peach
+      </div>
+    </div>
+    <div class="coral-row">
+      <div class="species">Fungia <em>disc coral</em></div>
+      <div class="mapping">
+        <strong>Deep Sleep</strong> · 30–110 min<br>
+        <span class="swatch" style="background:#d8d0c8"></span>misty cream
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#e8b0c0"></span>rose pink
+      </div>
+    </div>
+    <div class="coral-row">
+      <div class="species">Millepora <em>fire coral</em></div>
+      <div class="mapping">
+        <strong>Body Temp</strong> · ±1.0 °C (absolute)<br>
+        <span class="swatch" style="background:#c8e0e8"></span>ice blue
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#f4d888"></span>soft gold
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#f0a098"></span>peach blush<br>
+        <em style="color:rgba(212,181,118,0.6)">deviation in either direction inflates size (stress response)</em>
+      </div>
+    </div>
+    <div class="coral-row">
+      <div class="species">Pocillopora <em>fine-branched staghorn</em></div>
+      <div class="mapping">
+        <strong>Respiratory Rate</strong> · 11–17 /min<br>
+        <span class="swatch" style="background:#b8d0e0"></span>pale sky blue
+        <span class="arrow">→</span>
+        <span class="swatch" style="background:#d8b8e0"></span>soft lilac
+      </div>
+    </div>
+
+    <h3 style="margin-top: 24px;">Cluster Size</h3>
+    <p>
+      The overall size of each day's cluster is driven by the Oura Readiness score
+      (50–90 window, mapped to 0.55× – 1.80× scale). Subtle readiness differences produce
+      obvious visual differences — the garden reads as taller on strong days, crouched on tired ones.
+      The substrate rock and the floating date label stay a constant size across all days.
+    </p>
+
+    <h3>Per-mesh Life Gradient</h3>
+    <p>
+      Inside each coral, base-to-tip meshes get a small hue, lightness, and emissive gradient.
+      Stems stay a little deeper, tips glow a little warmer — so corals read as living
+      organisms rather than painted statues.
+    </p>
+
+    <button class="close" id="mapping-close">Close</button>
+  </div>
+</div>
+
+<div class="hokora-progress" id="hokora-progress">
+  <div class="label" id="hokora-progress-label">Loading Hokora · 0%</div>
+  <div class="track"><div class="bar" id="hokora-progress-bar"></div></div>
+</div>
+
+<div class="nav-pad" id="nav-pad">
+  <div class="nav-row">
+    <button class="nav-btn" data-dir="forward" title="Move forward (W)">▲</button>
+  </div>
+  <div class="nav-row">
+    <button class="nav-btn" data-dir="left" title="Move left (A)">◀</button>
+    <button class="nav-btn reset" id="reset-view" title="Reset view">⊙</button>
+    <button class="nav-btn" data-dir="right" title="Move right (D)">▶</button>
+  </div>
+  <div class="nav-row">
+    <button class="nav-btn" data-dir="back" title="Move back (S)">▼</button>
+  </div>
+</div>
+
+<!-- Omikuji Modal -->
+<div class="modal-overlay" id="shrine-overlay">
+  <div class="omikuji" id="omikuji-card">
+    <!-- Top: rank in black box + romaji beside -->
+    <div class="omikuji-header">
+      <div class="rank-box" id="omikuji-rank">—</div>
+      <div class="rank-romaji" id="omikuji-romaji">—</div>
+    </div>
+
+    <!-- Body: 6 columns. DOM order is LEFT-to-RIGHT, but flex-direction: row-reverse displays them RIGHT-to-LEFT.
+         So the FIRST element in DOM is the RIGHTMOST visible column. Reading order (right → left): poem line 1, 2, 3, 4, English, Date. -->
+    <div class="omikuji-body" id="omikuji-body">
+      <!-- Col 1 (rightmost): poem line 1 -->
+      <div class="omikuji-col poem-col"><span class="line" id="poem-line-1">—</span></div>
+      <!-- Col 2: poem line 2 -->
+      <div class="omikuji-col poem-col"><span class="line" id="poem-line-2">—</span></div>
+      <!-- Col 3: poem line 3 -->
+      <div class="omikuji-col poem-col"><span class="line" id="poem-line-3">—</span></div>
+      <!-- Col 4: poem line 4 -->
+      <div class="omikuji-col poem-col"><span class="line" id="poem-line-4">—</span></div>
+      <!-- Col 5: English interpretation (vertical) -->
+      <div class="omikuji-col interp-col" id="omikuji-interp">—</div>
+      <!-- Col 6 (leftmost): date + signature, horizontal English -->
+      <div class="omikuji-col date-col">
+        <div>
+          <div class="date-label">Date</div>
+          <div class="date-value" id="omikuji-date">—</div>
+          <div class="date-label">Signature</div>
+          <div class="date-value" id="omikuji-sig" style="font-size: 12px; letter-spacing: 0.15em;">—</div>
+        </div>
+        <div class="day-num" id="omikuji-daynum">— of —</div>
+      </div>
+    </div>
+
+    <!-- Loading overlay for when poem is being generated -->
+    <div class="loading-text" id="omikuji-loading" style="display:none;">Asking the coral...</div>
+
+    <!-- Footer: back + rank guide -->
+    <div class="omikuji-footer">
+      <button id="omikuji-back" title="Back to garden">← Back to Garden</button>
+      <span class="footer-sep">·</span>
+      <button id="rank-guide-btn" title="How readiness score maps to each rank">Rank Guide</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rank Guide modal — shares the rice-paper look of the omikuji card -->
+<div class="modal-overlay" id="rank-overlay">
+  <div class="rank-guide">
+    <div class="rank-header">
+      <div class="rank-title">御神签分级</div>
+      <div class="rank-title-en">Seven Ranks · Readiness Score Mapping</div>
+    </div>
+
+    <div class="rank-body">
+      <p class="rank-intro">
+        Today's sign is drawn from yesterday's Oura readiness score — weighted against
+        sleep and heart rate variability. The body writes the fortune; the shrine
+        merely reads it.
+      </p>
+
+      <div class="rank-row">
+        <div class="rank-cn" style="color: #8b2a1f">大吉</div>
+        <div class="rank-meta"><em>Dai-kichi</em> · Great Blessing</div>
+        <div class="rank-range">90 – 100</div>
+      </div>
+      <div class="rank-row">
+        <div class="rank-cn" style="color: #a04528">中吉</div>
+        <div class="rank-meta"><em>Chū-kichi</em> · Middle Blessing</div>
+        <div class="rank-range">80 – 89</div>
+      </div>
+      <div class="rank-row">
+        <div class="rank-cn" style="color: #b86035">小吉</div>
+        <div class="rank-meta"><em>Shō-kichi</em> · Small Blessing</div>
+        <div class="rank-range">70 – 79</div>
+      </div>
+      <div class="rank-row">
+        <div class="rank-cn" style="color: #c87848">吉</div>
+        <div class="rank-meta"><em>Kichi</em> · Blessing</div>
+        <div class="rank-range">60 – 69</div>
+      </div>
+      <div class="rank-row">
+        <div class="rank-cn" style="color: #8b7a5a">末吉</div>
+        <div class="rank-meta"><em>Sue-kichi</em> · Late Blessing</div>
+        <div class="rank-range">50 – 59</div>
+      </div>
+      <div class="rank-row">
+        <div class="rank-cn" style="color: #4a3a3a">凶</div>
+        <div class="rank-meta"><em>Kyō</em> · Curse</div>
+        <div class="rank-range">35 – 49</div>
+      </div>
+      <div class="rank-row">
+        <div class="rank-cn" style="color: #2a1a1a">大凶</div>
+        <div class="rank-meta"><em>Dai-kyō</em> · Great Curse</div>
+        <div class="rank-range">0 – 34</div>
+      </div>
+
+      <p class="rank-note">
+        Score is computed as <strong>readiness × 0.5 + sleep × 0.3 + HRV × 0.2</strong>,
+        each normalized to 0–100. The Oura app's own readiness score carries the
+        most weight because it already blends sleep, HRV, activity, and temperature.
+      </p>
+    </div>
+
+    <div class="omikuji-footer">
+      <button id="rank-close" title="Back to omikuji">← Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Jellyfish Lantern guidance modal — appears when the lantern is clicked at night -->
+<div class="modal-overlay" id="lantern-overlay">
+  <div class="lantern-card">
+    <!-- Speech-bubble sticky-note background: single SVG path traces the
+         rounded main body and the drop-tail in one closed shape so there
+         are no overlap seams. -->
+    <svg class="bubble-bg" viewBox="0 0 240 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 40 12
+               L 200 12
+               Q 228 12, 228 40
+               L 228 128
+               Q 228 150, 200 150
+               L 95 150
+               Q 85 162, 74 176
+               Q 62 188, 48 194
+               Q 58 178, 64 162
+               Q 68 154, 70 150
+               L 40 150
+               Q 12 150, 12 128
+               L 12 40
+               Q 12 12, 40 12 Z"
+            fill="#fefdf8"
+            stroke="#1a1008"
+            stroke-width="3"
+            stroke-linejoin="round"/>
+    </svg>
+
+    <div class="lantern-header">
+      <div class="lantern-title">Lantern's Whisper</div>
+      <div class="lantern-title-en">tonight's sleep guide</div>
+    </div>
+    <div class="lantern-body">
+      <div class="lantern-loading" id="lantern-loading" style="display:none">The lantern is listening to your body…</div>
+
+      <div class="lantern-section" id="lantern-guide-section">
+        <div class="lantern-section-label">Sleep Guide</div>
+        <div class="lantern-text" id="lantern-guide"></div>
+      </div>
+
+      <div class="lantern-divider"></div>
+
+      <div class="lantern-section" id="lantern-tale-section">
+        <div class="lantern-section-label">Bedtime Tale · Deep-Sea Vignette</div>
+        <div class="lantern-text tale" id="lantern-tale"></div>
+      </div>
+    </div>
+    <div class="omikuji-footer">
+      <button id="lantern-close">← Back to Garden</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottle Writer Modal -->
+<div class="modal-overlay" id="writer-overlay">
+  <div class="bottle-writer">
+    <div class="header">
+      <div class="title">Message in a Bottle</div>
+      <div class="en">Today's Letter</div>
+    </div>
+    <div class="meta" id="writer-date">—</div>
+    <div class="prompt">Write a few lines about today. Your body has already spoken through the coral — this is your own voice, beside it.</div>
+    <textarea id="bottle-text" maxlength="240" placeholder="Thoughts and feelings from today..."></textarea>
+    <div class="count"><span id="bottle-count">0</span> / 240</div>
+    <div class="actions">
+      <button id="writer-cancel">Cancel</button>
+      <button class="primary" id="writer-save">Seal the bottle</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bottle Reader Modal -->
+<div class="modal-overlay" id="reader-overlay">
+  <div class="bottle-reader">
+    <div class="date-stamp" id="reader-date">—</div>
+    <div class="lunar" id="reader-subtitle">—</div>
+    <div class="body-text" id="reader-body">—</div>
+    <div class="resonance" id="reader-resonance"></div>
+    <div class="reader-actions">
+      <button class="reader-edit" id="reader-edit">✎ Add to this letter</button>
+      <button class="close" id="reader-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import {
+  hasOuraToken, setOuraToken, clearOuraToken,
+  fetchOuraDays, latestCompleteDay,
+  hasAutoConfig, shouldAutoSync, getLastSyncTime, markSyncTime,
+  getAutoSyncHour, inspectOuraRaw,
+} from './src/data/ouraClient.js';
+
+// ═══════════════════════════════════════════════════════════════════════
+// METRIC DEFINITIONS — the 7 fixed coral species per day (CLAUDE.md §7 Body Metrics)
+// ═══════════════════════════════════════════════════════════════════════
+const METRICS = [
+  { key: 'sleep',     cn: '睡眠',       en: 'Sleep',        latin: 'Favia',       cnC: '脑珊瑚',     min: 40,  max: 100, base: 82,  unit: ''     },
+  { key: 'hrv',       cn: '心率变异',   en: 'HRV',          latin: 'Gorgonia',    cnC: '海扇',       min: 20,  max: 90,  base: 55,  unit: 'ms'   },
+  { key: 'rhr',       cn: '静息心率',   en: 'RHR',          latin: 'Xenia',       cnC: '脉冲珊瑚',   min: 45,  max: 85,  base: 62,  unit: 'bpm'  },
+  { key: 'activity',  cn: '活动',       en: 'Activity',     latin: 'Acropora',    cnC: '鹿角珊瑚',   min: 30,  max: 100, base: 70,  unit: ''     },
+  { key: 'deepSleep', cn: '深睡',       en: 'Deep Sleep',   latin: 'Fungia',      cnC: '圆盘珊瑚',   min: 0,   max: 180, base: 75,  unit: 'min'  },
+  { key: 'bodyTemp',  cn: '体温偏差',   en: 'Body Temp',    latin: 'Millepora',   cnC: '火珊瑚',     min: -1.5, max: 2.0, base: 0.0, unit: '°C'   },
+  { key: 'respRate',  cn: '呼吸',       en: 'Resp Rate',    latin: 'Pocillopora', cnC: '细枝鹿角',   min: 10,  max: 20,  base: 14,  unit: '/min' },
+];
+
+const norm = (v, min, max) => Math.max(0, Math.min(1, (v - min) / (max - min)));
+
+// ═══════════════════════════════════════════════════════════════════════
+// DATA LAYER — generates or loads N days of biometric data
+// ═══════════════════════════════════════════════════════════════════════
+// Derive a 0–100 readiness score from the 7 metrics — legacy field used by
+// omikuji scoring and signature hashing; kept as a synthetic overall state.
+function deriveReadiness(data) {
+  const sleepN      = norm(data.sleep, 40, 100);
+  const hrvN        = norm(data.hrv, 20, 90);
+  const rhrN        = 1 - norm(data.rhr, 45, 85); // lower RHR = better
+  const activityN   = norm(data.activity, 30, 100);
+  const deepSleepN  = norm(data.deepSleep, 0, 180);
+  const tempStable  = 1 - Math.min(1, Math.abs(data.bodyTemp) / 1.5); // closer to 0 is better
+  const respStable  = 1 - Math.min(1, Math.abs(data.respRate - 14) / 6); // closer to 14 is better
+  const weighted =
+    sleepN     * 0.20 +
+    hrvN       * 0.15 +
+    rhrN       * 0.10 +
+    activityN  * 0.10 +
+    deepSleepN * 0.15 +
+    tempStable * 0.15 +
+    respStable * 0.15;
+  return Math.round(weighted * 100);
+}
+
+function generateMockDays(N = 30) {
+  const days = [];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  // generate a somewhat-continuous time series (correlated random walk)
+  let state = {};
+  METRICS.forEach(m => { state[m.key] = m.base; });
+  // start from N-1 days ago
+  for (let i = N - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const data = {};
+    METRICS.forEach(m => {
+      const range = m.max - m.min;
+      // drift 5-15% per day, pulled toward baseline
+      const drift = (Math.random() - 0.5) * range * 0.15;
+      const pull = (m.base - state[m.key]) * 0.18;
+      state[m.key] = Math.max(m.min, Math.min(m.max, state[m.key] + drift + pull));
+      data[m.key] = state[m.key];
+    });
+    data.readiness = deriveReadiness(data);
+    days.push({ date: ISO(d), data });
+  }
+  return days;
+}
+
+// Local-date formatter. We deliberately avoid `toISOString().slice(0,10)` —
+// that converts to UTC first, which in timezones like UTC+8 turns local
+// midnight on day N into day N−1 UTC, making "today" off by one everywhere.
+const ISO = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+// Parse a "YYYY-MM-DD" string as a LOCAL midnight Date. `new Date("2026-04-21")`
+// parses as UTC midnight, which means `.getDate()` reads one day earlier in
+// UTC-X timezones (e.g. "Apr 21" → shows as "Apr 20" in US Eastern).
+const parseLocalDate = (ymd) => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+const todayISO = ISO(new Date());
+
+// Minimum fields every day must carry — matches the 7-coral mapping.
+const REQUIRED_METRIC_KEYS = ['sleep','hrv','rhr','activity','deepSleep','bodyTemp','respRate'];
+
+// 'oura' once live data has replaced mocks; 'mock' otherwise. Persisted in
+// each day's .source field so we know where the cache came from.
+let dataSource = 'mock';
+
+// load or initialize days
+let days = [];
+async function loadDays() {
+  try {
+    const res = await window.storage?.get('garden:days');
+    if (res && res.value) {
+      const loaded = JSON.parse(res.value);
+      const fresh = Array.isArray(loaded) && loaded.length > 0 &&
+        REQUIRED_METRIC_KEYS.every(k => k in (loaded[0].data || {}));
+      if (fresh) {
+        days = loaded;
+        dataSource = loaded.some(d => d.source === 'oura') ? 'oura' : 'mock';
+        return;
+      }
+    }
+  } catch (e) {}
+  days = generateMockDays(30);
+  dataSource = 'mock';
+  saveDays();
+}
+async function saveDays() {
+  try { await window.storage?.set('garden:days', JSON.stringify(days)); } catch (e) {}
+}
+async function regenMock() {
+  days = generateMockDays(30);
+  dataSource = 'mock';
+  await saveDays();
+}
+
+// bottles: { 'YYYY-MM-DD': { text, createdAt, resonance } }
+// Storage adapter: prefer host-provided window.storage (Claude artifact env),
+// fall back to localStorage so bottles/omikuji actually persist in a browser.
+if (!window.storage) {
+  window.storage = {
+    get: async (key) => {
+      try {
+        const v = localStorage.getItem(key);
+        return v === null ? null : { value: v };
+      } catch { return null; }
+    },
+    set: async (key, value) => {
+      try { localStorage.setItem(key, value); } catch {}
+    },
+  };
+}
+
+let bottles = {};
+async function loadBottles() {
+  try {
+    const res = await window.storage?.get('garden:bottles');
+    if (res && res.value) bottles = JSON.parse(res.value);
+  } catch (e) {}
+}
+async function saveBottles() {
+  try { await window.storage?.set('garden:bottles', JSON.stringify(bottles)); } catch (e) {}
+}
+
+// omikuji: { 'YYYY-MM-DD': {rank, romaji, poem, interp} }
+let omikujiCache = {};
+async function loadOmikuji() {
+  try {
+    const res = await window.storage?.get('garden:omikuji');
+    if (res && res.value) omikujiCache = JSON.parse(res.value);
+  } catch (e) {}
+}
+async function saveOmikuji() {
+  try { await window.storage?.set('garden:omikuji', JSON.stringify(omikujiCache)); } catch (e) {}
+}
+
+// session: keep track of view state for continuity
+let sessionState = { firstOpenToday: true };
+async function loadSession() {
+  try {
+    const res = await window.storage?.get('garden:session');
+    if (res && res.value) {
+      const s = JSON.parse(res.value);
+      sessionState.firstOpenToday = (s.lastOpenDate !== todayISO);
+    }
+  } catch (e) {}
+}
+async function markSessionOpened() {
+  try {
+    await window.storage?.set('garden:session', JSON.stringify({ lastOpenDate: todayISO }));
+  } catch (e) {}
+}
+
+await loadDays();
+await loadBottles();
+await loadOmikuji();
+await loadSession();
+
+// ═══════════════════════════════════════════════════════════════════════
+// THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════════════════
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x5ea0c0, 0.022);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 300);
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;    // slightly brighter exposure
+container.appendChild(renderer.domElement);
+
+// ═══ lights (will be updated by time-of-day) ═══
+const ambient = new THREE.AmbientLight(0x8ab8d0, 0.7);
+scene.add(ambient);
+
+// Hemisphere light: bright sky above, dimmer seafloor below — fills in shadows naturally
+const hemiLight = new THREE.HemisphereLight(0xcfe8ff, 0x6a8070, 0.6);
+scene.add(hemiLight);
+
+const sun = new THREE.DirectionalLight(0xfff8e5, 1.5);
+sun.position.set(4, 15, 3);
+scene.add(sun);
+
+const rimLight = new THREE.PointLight(0x6ad8d0, 0.45, 30);
+rimLight.position.set(-8, 3, -4);
+scene.add(rimLight);
+
+const fillLight = new THREE.PointLight(0xffb880, 0.35, 25);
+fillLight.position.set(6, 2, 4);
+scene.add(fillLight);
+
+// ═══ sea floor & river valley ═══
+// River path: a curving S-shape running from upstream (-Z, far) to downstream (+Z, near)
+// 'today' = most recent day is at the downstream (near) end
+const RIVER_POINTS = [
+  new THREE.Vector3(-3.2, 0, -22),   // far upstream (oldest)
+  new THREE.Vector3( 2.9, 0, -19),
+  new THREE.Vector3(-2.7, 0, -16),
+  new THREE.Vector3( 3.1, 0, -13),
+  new THREE.Vector3(-2.2, 0, -10),
+  new THREE.Vector3( 2.8, 0,  -7),
+  new THREE.Vector3(-2.0, 0,  -4),
+  new THREE.Vector3( 2.5, 0,  -1),
+  new THREE.Vector3(-1.2, 0,   2),
+  new THREE.Vector3( 1.9, 0,   5),
+  new THREE.Vector3(-0.4, 0,   8),   // downstream (today)
+];
+const riverCurve = new THREE.CatmullRomCurve3(RIVER_POINTS, false, 'catmullrom', 0.5);
+
+// Get point on river and tangent direction
+function riverAt(t) {
+  const p = riverCurve.getPoint(t);
+  const tan = riverCurve.getTangent(t).normalize();
+  // perpendicular (horizontal) — points "to the left bank"
+  const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+  return { p, tan, perp };
+}
+
+// ─── Build river valley terrain as a PlaneGeometry with heightmap ───
+// The valley has a sunken channel along the curve and raised banks on either side
+const VALLEY_W = 24, VALLEY_L = 52;
+const valleyGeo = new THREE.PlaneGeometry(VALLEY_W, VALLEY_L, 96, 160);
+const vPos = valleyGeo.attributes.position;
+
+// We treat the plane as lying in the XZ plane (will rotate -PI/2 on X), so
+// in local coords: x is plane-X (world X), y is plane-Y (world -Z after rotation)
+// To find distance from river, we need curve points at various z values.
+// Pre-sample the curve at 200 points for fast lookup.
+const curveSamples = [];
+for (let i = 0; i <= 200; i++) {
+  curveSamples.push(riverCurve.getPoint(i / 200));
+}
+function distToRiver(wx, wz) {
+  let minD2 = Infinity;
+  let closest = curveSamples[0];
+  for (const s of curveSamples) {
+    const dx = s.x - wx, dz = s.z - wz;
+    const d2 = dx*dx + dz*dz;
+    if (d2 < minD2) { minD2 = d2; closest = s; }
+  }
+  return { dist: Math.sqrt(minD2), closest };
+}
+
+// Seeded noise for terrain detail
+function hash2(x, y) {
+  const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+function valueNoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y);
+  const xf = x - xi, yf = y - yi;
+  const a = hash2(xi, yi);
+  const b = hash2(xi+1, yi);
+  const c = hash2(xi, yi+1);
+  const d = hash2(xi+1, yi+1);
+  const u = xf*xf*(3-2*xf);
+  const v = yf*yf*(3-2*yf);
+  return (a*(1-u) + b*u)*(1-v) + (c*(1-u) + d*u)*v;
+}
+function fbm(x, y, octaves = 4) {
+  let f = 0, amp = 0.5, freq = 1;
+  for (let i = 0; i < octaves; i++) {
+    f += amp * valueNoise(x * freq, y * freq);
+    freq *= 2; amp *= 0.5;
+  }
+  return f;
+}
+
+for (let i = 0; i < vPos.count; i++) {
+  const px = vPos.getX(i);
+  const py = vPos.getY(i);
+  // after rotation -PI/2 X: world x = px, world z = -py
+  const wx = px;
+  const wz = -py;
+  const { dist } = distToRiver(wx, wz);
+  // Channel: within 1.4 units of river, dip down
+  // Banks: 1.4..3.5 raise up
+  // Beyond: gentle noisy plain
+  let h = 0;
+  if (dist < 1.4) {
+    // river channel - sunken
+    const t = dist / 1.4; // 0 center, 1 edge
+    h = -0.25 * (1 - t*t);
+  } else if (dist < 3.8) {
+    // banks - raised with noise
+    const t = (dist - 1.4) / 2.4; // 0 bank edge, 1 outer edge
+    // peak at t≈0.4
+    const peak = Math.sin(Math.min(1, t/0.4) * Math.PI * 0.5);
+    const noise = fbm(wx * 0.6, wz * 0.6) * 0.3;
+    h = 0.35 * peak * (1 - t*0.6) + noise * peak;
+  } else {
+    // outer terrain - gentle dunes
+    h = 0.1 + fbm(wx * 0.4, wz * 0.4) * 0.2;
+  }
+  vPos.setZ(i, h);
+}
+
+// Vertex coloring for variety: channel is lighter sand, banks darker
+const valleyColors = new Float32Array(vPos.count * 3);
+const sandLight = new THREE.Color(0xf5ecd5);  // very pale cream
+const sandDark  = new THREE.Color(0xe4d5b0);  // warm off-white
+const rockBrown = new THREE.Color(0xbfa882);  // light tan for outer terrain
+const fogColorApprox = new THREE.Color(0x3a7a9a);  // matches scene fog
+
+// edge falloff: fade vertices to fog color as they approach the plane's edge
+// The river runs roughly along Z in world space; dominant edge is radial from origin.
+const edgeFadeStart = 0.55;  // 0..1, fraction of half-extent where fade begins
+const halfW = VALLEY_W / 2, halfL = VALLEY_L / 2;
+
+for (let i = 0; i < vPos.count; i++) {
+  const px = vPos.getX(i);
+  const py = vPos.getY(i);
+  const wx = px, wz = -py;
+  const { dist } = distToRiver(wx, wz);
+  let c;
+  if (dist < 1.4) {
+    c = sandLight.clone().lerp(sandDark, dist / 1.4 * 0.3);
+  } else if (dist < 3.8) {
+    const t = (dist - 1.4) / 2.4;
+    c = sandDark.clone().lerp(rockBrown, t * 0.7);
+  } else {
+    c = rockBrown.clone().lerp(sandDark, 0.3);
+  }
+  // add a bit of per-vertex noise
+  const n = fbm(wx * 1.2, wz * 1.2) * 0.15;
+  c.offsetHSL(0, 0, n - 0.075);
+
+  // edge fade: calculate normalized distance from center along each axis
+  const ex = Math.abs(px) / halfW;  // 0 center, 1 edge
+  const ey = Math.abs(py) / halfL;
+  const edgeFactor = Math.max(ex, ey);
+  if (edgeFactor > edgeFadeStart) {
+    // smooth falloff from edgeFadeStart (1.0 visible) to 1.0 (fully fog)
+    const fadeT = Math.min(1, (edgeFactor - edgeFadeStart) / (1 - edgeFadeStart));
+    const smoothFade = fadeT * fadeT * (3 - 2 * fadeT);  // smoothstep
+    c.lerp(fogColorApprox, smoothFade);
+    // also lower y slightly at the very edge so it sinks into the water
+    const sink = smoothFade * smoothFade * 0.8;
+    vPos.setZ(i, vPos.getZ(i) - sink);
+  }
+  valleyColors[i*3]   = c.r;
+  valleyColors[i*3+1] = c.g;
+  valleyColors[i*3+2] = c.b;
+}
+valleyGeo.setAttribute('color', new THREE.BufferAttribute(valleyColors, 3));
+valleyGeo.computeVertexNormals();
+
+const valleyMat = new THREE.MeshStandardMaterial({
+  vertexColors: true, roughness: 0.96, metalness: 0, flatShading: false
+});
+const valley = new THREE.Mesh(valleyGeo, valleyMat);
+valley.rotation.x = -Math.PI/2;
+valley.position.y = 0;
+scene.add(valley);
+
+// scatter a few small pebbles ALONG the river (kept sparse to let corals breathe)
+for (let i = 0; i < 20; i++) {
+  const t = Math.random();
+  const { p, perp } = riverAt(t);
+  const off = (Math.random() - 0.5) * 2.8;
+  const pebbleGeo = new THREE.DodecahedronGeometry(0.03 + Math.random()*0.05, 0);
+  const pebble = new THREE.Mesh(pebbleGeo, new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(0.08 + Math.random()*0.04, 0.15, 0.7 + Math.random()*0.1),
+    roughness: 0.95, flatShading: true
+  }));
+  pebble.position.set(
+    p.x + perp.x * off,
+    -0.02 + Math.random() * 0.02,
+    p.z + perp.z * off
+  );
+  pebble.rotation.set(Math.random(), Math.random(), Math.random());
+  pebble.scale.setScalar(0.7 + Math.random() * 0.4);
+  scene.add(pebble);
+}
+
+// ═══ riverbed life — small shells, sea stars, seagrass tufts ═══
+function makeShell(size = 0.08) {
+  // simple shell: half-sphere with ridges
+  const geo = new THREE.SphereGeometry(size, 10, 6, 0, Math.PI*2, 0, Math.PI/2);
+  const pos = geo.attributes.position;
+  for (let k = 0; k < pos.count; k++) {
+    const v = new THREE.Vector3().fromBufferAttribute(pos, k);
+    const theta = Math.atan2(v.z, v.x);
+    const ridge = Math.sin(theta * 8) * size * 0.06;
+    v.addScaledVector(v.clone().normalize(), ridge);
+    pos.setXYZ(k, v.x, v.y, v.z);
+  }
+  geo.computeVertexNormals();
+  const hue = 0.06 + Math.random() * 0.04;
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(hue, 0.3, 0.78 + Math.random()*0.1),
+    roughness: 0.5, metalness: 0.05, side: THREE.DoubleSide
+  });
+  const m = new THREE.Mesh(geo, mat);
+  return m;
+}
+
+function makeSeaStar(size = 0.12) {
+  const g = new THREE.Group();
+  const hue = 0.03 + Math.random() * 0.04;
+  const color = new THREE.Color().setHSL(hue, 0.55, 0.5);
+  const mat = new THREE.MeshStandardMaterial({
+    color, roughness: 0.8,
+    emissive: color.clone().multiplyScalar(0.15)
+  });
+  for (let i = 0; i < 5; i++) {
+    const arm = new THREE.Mesh(
+      new THREE.ConeGeometry(size*0.22, size, 5),
+      mat
+    );
+    const a = (i / 5) * Math.PI * 2;
+    arm.position.set(Math.cos(a) * size * 0.4, size * 0.08, Math.sin(a) * size * 0.4);
+    arm.rotation.x = Math.PI/2;
+    arm.rotation.z = -a + Math.PI/2;
+    g.add(arm);
+  }
+  const center = new THREE.Mesh(
+    new THREE.SphereGeometry(size * 0.3, 10, 8),
+    mat
+  );
+  center.scale.y = 0.3;
+  center.position.y = size * 0.08;
+  g.add(center);
+  return g;
+}
+
+function makeSeagrass(size = 0.35) {
+  const g = new THREE.Group();
+  const blades = 5 + Math.floor(Math.random() * 4);
+  const hue = 0.28 + Math.random() * 0.06;
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(hue, 0.6, 0.35),
+    roughness: 0.75, side: THREE.DoubleSide,
+    emissive: new THREE.Color().setHSL(hue, 0.5, 0.08)
+  });
+  for (let i = 0; i < blades; i++) {
+    const h = size * (0.85 + Math.random() * 0.5);
+    const bladeGeo = new THREE.PlaneGeometry(0.04, h, 1, 5);
+    const bp = bladeGeo.attributes.position;
+    for (let j = 0; j < bp.count; j++) {
+      const y = bp.getY(j);
+      const tRel = (y + h/2) / h;
+      bp.setZ(j, Math.pow(tRel, 1.5) * size * 0.35 * (Math.random() > 0.5 ? 1 : -1));
+    }
+    bladeGeo.computeVertexNormals();
+    const blade = new THREE.Mesh(bladeGeo, mat);
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * 0.03;
+    blade.position.set(Math.cos(a) * r, h/2, Math.sin(a) * r);
+    blade.rotation.y = a + (Math.random() - 0.5) * 0.8;
+    blade.userData.baseRotX = (Math.random() - 0.5) * 0.2;
+    blade.userData.baseRotZ = 0;
+    blade.userData.swayPhase = Math.random() * Math.PI * 2;
+    blade.rotation.x = blade.userData.baseRotX;
+    g.add(blade);
+  }
+  g.userData.type = 'algae'; // reuse sway animation
+  return g;
+}
+
+// Sparse distribution across riverbed and banks
+// Only place items where not occupied by coral clusters — keep minimum distance from curve-aligned cluster positions
+const _placedRefPositions = []; // we'll fill this after building clusters to avoid overlap
+
+function inRiverChannel(x, z) {
+  const { dist } = distToRiver(x, z);
+  return dist < 1.3;
+}
+
+// Terrain height at world (x, z). Mirrors the heightmap pass built into the
+// valley geometry so scattered items lie on the actual sand surface rather
+// than clipping through banks or floating over the river channel.
+function groundYAt(x, z) {
+  const { dist } = distToRiver(x, z);
+  if (dist < 1.4) {
+    const tt = dist / 1.4;
+    return -0.25 * (1 - tt * tt);
+  }
+  if (dist < 3.8) {
+    const tt = (dist - 1.4) / 2.4;
+    const peak = Math.sin(Math.min(1, tt / 0.4) * Math.PI * 0.5);
+    return 0.35 * peak * (1 - tt * 0.6);
+  }
+  return 0.1;
+}
+
+function pickRiverbedSpot(minD = 0.8) {
+  // Try up to 20 times to find a sparse spot. Range widened to ±3.5 units
+  // from the river so items fan across both channel and banks.
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const t = Math.random();
+    const { p, perp } = riverAt(t);
+    const off = (Math.random() - 0.5) * 7.0;
+    const x = p.x + perp.x * off;
+    const z = p.z + perp.z * off;
+    let tooClose = false;
+    for (const r of _placedRefPositions) {
+      const d = Math.hypot(x - r.x, z - r.z);
+      if (d < Math.max(r.minDist, minD)) { tooClose = true; break; }
+    }
+    if (!tooClose) return { x, z, off };
+  }
+  return null;
+}
+
+// Scatter a small number of items around the shrine in addition to the
+// river-wide scatter. Nautilus count kept very low (each spiral = 12 small
+// spheres and reads as a "bowl cluster" when many are present).
+function scatterAroundShrine() {
+  const SHRINE = { x: 2.4, z: 9.2 };
+  const tries = 24;
+  const placed = [];
+  // 2 sea stars near the shrine
+  for (let i = 0; i < 2; i++) {
+    for (let a = 0; a < tries; a++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 1.3 + Math.random() * 1.3;
+      const x = SHRINE.x + Math.cos(angle) * r;
+      const z = SHRINE.z + Math.sin(angle) * r;
+      const tooClose = placed.some(p => Math.hypot(p.x - x, p.z - z) < 0.9);
+      if (tooClose) continue;
+      const star = makeSeaStar(0.08 + Math.random() * 0.04);
+      star.position.set(x, groundYAt(x, z) + 0.015, z);
+      star.rotation.y = Math.random() * Math.PI * 2;
+      scene.add(star);
+      placed.push({ x, z });
+      break;
+    }
+  }
+  // 1 nautilus shell near the shrine
+  for (let i = 0; i < 1; i++) {
+    for (let a = 0; a < tries; a++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = 1.8 + Math.random() * 0.8;
+      const x = SHRINE.x + Math.cos(angle) * r;
+      const z = SHRINE.z + Math.sin(angle) * r;
+      const tooClose = placed.some(p => Math.hypot(p.x - x, p.z - z) < 1.2);
+      if (tooClose) continue;
+      const nautilus = makeNautilusShell();
+      nautilus.position.set(x, groundYAt(x, z) + 0.04, z);
+      nautilus.rotation.y = Math.random() * Math.PI * 2;
+      nautilus.scale.setScalar(0.5 + Math.random() * 0.15);
+      scene.add(nautilus);
+      placed.push({ x, z });
+      break;
+    }
+  }
+}
+
+// Schedule riverbed scatter to run AFTER clusters are built (needs their
+// positions for collision avoidance). Populates the sand sparsely — each
+// nautilus is built from 12 flattened spheres, so keeping the count low
+// avoids the "heap of bowls" look.
+function scatterRiverbedLife() {
+  // Register clusters so items don't land inside coral packs
+  clusters.forEach(c => {
+    _placedRefPositions.push({ x: c.position.x, z: c.position.z, minDist: 1.0 });
+  });
+  // Shrine: small exclusion just to avoid clipping through the model itself;
+  // surrounding area gets a dedicated scatter via scatterAroundShrine()
+  _placedRefPositions.push({ x: 2.4, z: 9.2, minDist: 0.9 });
+
+  // 6 sea stars along the river (down from 10)
+  for (let i = 0; i < 6; i++) {
+    const spot = pickRiverbedSpot(1.4);
+    if (!spot) continue;
+    const star = makeSeaStar(0.07 + Math.random() * 0.04);
+    star.position.set(spot.x, groundYAt(spot.x, spot.z) + 0.015, spot.z);
+    star.rotation.y = Math.random() * Math.PI * 2;
+    scene.add(star);
+    _placedRefPositions.push({ x: spot.x, z: spot.z, minDist: 1.1 });
+  }
+
+  // 3 nautilus shells along the river (down from 10) — with strong separation
+  // so they don't group into clusters that read as "bowl piles"
+  for (let i = 0; i < 3; i++) {
+    const spot = pickRiverbedSpot(3.0);
+    if (!spot) continue;
+    const nautilus = makeNautilusShell();
+    nautilus.position.set(spot.x, groundYAt(spot.x, spot.z) + 0.04, spot.z);
+    nautilus.rotation.y = Math.random() * Math.PI * 2;
+    nautilus.scale.setScalar(0.5 + Math.random() * 0.15);
+    scene.add(nautilus);
+    _placedRefPositions.push({ x: spot.x, z: spot.z, minDist: 2.5 });
+  }
+
+  // Guaranteed sparse scatter around the shrine so the downstream end is never empty
+  scatterAroundShrine();
+}
+
+// ═══ Hokora shrine — loaded from optimized GLB (meshopt-compressed) ═══
+const fossilGroup = new THREE.Group();
+fossilGroup.name = 'hokora';
+fossilGroup.userData.isShrine = true;
+
+// Warm interior glow — the animation loop pulses the first PointLight child.
+const shrineGlow = new THREE.PointLight(0xffc488, 0.65, 3);
+shrineGlow.position.set(0, 0.5, 0);
+fossilGroup.add(shrineGlow);
+
+// Floating "Today" label beside the shrine roof (right eave, not above —
+// otherwise it collides with the page title bar at the top of the viewport).
+// Shrine bbox ≈ ±0.78 on X, 0–1.9 on Y inside the group. x=+0.95 puts the
+// label just past the right eave; y=1.5 puts it at the copper-roof level.
+const shrineTodayLabel = makeDateLabel('', true, 'Today');
+shrineTodayLabel.position.set(0.95, 1.55, 0);
+shrineTodayLabel.scale.set(1.8, 0.45, 1);
+fossilGroup.add(shrineTodayLabel);
+
+scene.add(fossilGroup);
+fossilGroup.position.set(2.4, 0.4, 9.2);
+fossilGroup.rotation.y = -0.7;
+
+{
+  const progressEl = document.getElementById('hokora-progress');
+  const barEl      = document.getElementById('hokora-progress-bar');
+  const labelEl    = document.getElementById('hokora-progress-label');
+
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  loader.load(
+    'assets/hokora_opt.glb',
+    (gltf) => {
+      const model = gltf.scene;
+      model.traverse(o => {
+        if (o.isMesh) {
+          o.userData.isShrine = true;
+          o.castShadow = true;
+          o.receiveShadow = true;
+        }
+      });
+      // The GLB's pivot is at the model's center (bbox ±0.95 on Y). Shift the
+      // loaded scene up by -bbox.min.y so fossilGroup's origin becomes the base
+      // of the shrine — matches the original hand-built shrine's pivot, which
+      // means position.y = 0.4 places the base on the sand as CLAUDE.md expects.
+      const bbox = new THREE.Box3().setFromObject(model);
+      model.position.y -= bbox.min.y;
+      fossilGroup.add(model);
+      if (progressEl) {
+        progressEl.classList.add('hide');
+        setTimeout(() => { progressEl.style.display = 'none'; }, 900);
+      }
+    },
+    (xhr) => {
+      if (!barEl || !labelEl) return;
+      if (xhr.lengthComputable && xhr.total > 0) {
+        const pct = (xhr.loaded / xhr.total) * 100;
+        barEl.style.width = pct.toFixed(1) + '%';
+        labelEl.textContent = `Loading Hokora · ${pct.toFixed(0)}%`;
+      } else {
+        labelEl.textContent = `Loading Hokora · ${(xhr.loaded / 1048576).toFixed(1)} MB`;
+      }
+    },
+    (err) => {
+      console.error('Failed to load hokora_opt.glb:', err);
+      if (labelEl) labelEl.textContent = 'Shrine failed to load';
+    }
+  );
+}
+
+// nautilus shell (small, at fossil base) — ornament + future interaction
+function makeNautilusShell() {
+  const g = new THREE.Group();
+  const segs = 12;
+  for (let i = 0; i < segs; i++) {
+    const t = i / segs;
+    const angle = t * Math.PI * 3.5;
+    const radius = 0.08 + t * 0.35;
+    const size = 0.06 + t * 0.12;
+    const seg = new THREE.Mesh(
+      new THREE.SphereGeometry(size, 12, 8),
+      new THREE.MeshStandardMaterial({
+        color: new THREE.Color().setHSL(0.09, 0.3, 0.7 - t*0.2),
+        roughness: 0.45, metalness: 0.1
+      })
+    );
+    seg.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    seg.scale.z = 0.5;
+    g.add(seg);
+  }
+  return g;
+}
+// Hard-coded nautilus shells near the shrine were removed — scatterRiverbedLife
+// now scatters them along the river sparsely, honoring the shrine exclusion zone.
+
+// ═══ Jellyfish Lantern — appears only in night mode beside the shrine ═══
+// A glowing transparent jellyfish hovering just above the sand, modeled on
+// the bioluminescent-jellyfish reference: cold blue-white dome with radial
+// venation lines, warm inner core, interior "star specks", and tentacles
+// made of glowing bead chains. Clicking it asks Claude for a tender sleep
+// guide + bedtime tale.
+function makeJellyfishLantern() {
+  const g = new THREE.Group();
+
+  const BELL_R = 0.26;
+  const BELL_FLAT = 0.78;        // y-scale for the dome (slightly flattened)
+  const BELL_Y = 1.00;           // bell center height within the group
+
+  // ─── Translucent bell, softly warm ───
+  const bellGeo = new THREE.SphereGeometry(BELL_R, 36, 20, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  const bellMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf4ecd8,             // warm off-white (rice paper, not cream)
+    transmission: 0.75,
+    transparent: true,
+    opacity: 0.48,
+    roughness: 0.20,
+    metalness: 0,
+    side: THREE.DoubleSide,
+    ior: 1.35,
+    thickness: 0.4,
+    emissive: 0xffd8a8,           // softer warm glow
+    emissiveIntensity: 0.15,
+  });
+  const bell = new THREE.Mesh(bellGeo, bellMat);
+  bell.position.y = BELL_Y;
+  bell.scale.y = BELL_FLAT;
+  g.add(bell);
+
+  // ─── Radial venation lines (softer warm meridians) ───
+  const veinMat = new THREE.LineBasicMaterial({
+    color: 0xf4e8d0, transparent: true, opacity: 0.6,
+  });
+  const N_VEINS = 20;
+  const VEIN_STEPS = 14;
+  for (let i = 0; i < N_VEINS; i++) {
+    const angle = (i / N_VEINS) * Math.PI * 2;
+    const points = [];
+    for (let s = 0; s <= VEIN_STEPS; s++) {
+      const t = s / VEIN_STEPS;
+      const phi = t * Math.PI * 0.55;
+      const rr = BELL_R * Math.sin(phi);
+      const py = BELL_R * Math.cos(phi) * BELL_FLAT;
+      points.push(new THREE.Vector3(
+        Math.cos(angle) * rr,
+        BELL_Y + py,
+        Math.sin(angle) * rr,
+      ));
+    }
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    g.add(new THREE.Line(geom, veinMat));
+  }
+
+  // ─── Central warm core — the "candle" inside the jellyfish ───
+  const coreGeo = new THREE.SphereGeometry(0.07, 14, 10);
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: 0xfff2d8,
+    emissive: 0xffc890,           // honey amber, not orange
+    emissiveIntensity: 2.2,
+    transparent: true,
+    opacity: 0.92,
+  });
+  const core = new THREE.Mesh(coreGeo, coreMat);
+  core.position.y = BELL_Y;
+  g.add(core);
+
+  // ─── Interior bioluminescent specks scattered through the dome volume.
+  // Each speck gets its own material so they can twinkle independently. ───
+  const specks = [];
+  const N_SPECKS = 32;
+  for (let i = 0; i < N_SPECKS; i++) {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.random() * Math.PI * 0.55;
+    const r = BELL_R * (0.2 + Math.random() * 0.75);
+    const sx = Math.cos(theta) * r * Math.sin(phi);
+    const sz = Math.sin(theta) * r * Math.sin(phi);
+    const sy = BELL_Y + BELL_R * Math.cos(phi) * BELL_FLAT * (0.1 + Math.random() * 0.8);
+    const speckMat = new THREE.MeshBasicMaterial({
+      color: 0xfff0dc,            // soft pale warm
+      transparent: true,
+      opacity: 0.9,
+    });
+    const speck = new THREE.Mesh(
+      new THREE.SphereGeometry(0.004 + Math.random() * 0.005, 6, 5),
+      speckMat,
+    );
+    speck.position.set(sx, sy, sz);
+    speck.userData.basePhase = Math.random() * Math.PI * 2;
+    speck.userData.baseSpeed = 0.8 + Math.random() * 1.5;
+    g.add(speck);
+    specks.push(speck);
+  }
+
+  // ─── Tentacles: bead chains trailing from the bell rim ───
+  const tentacles = [];
+  const beadMat = new THREE.MeshStandardMaterial({
+    color: 0xfff0dc,
+    emissive: 0xffd8a8,           // honeyed warm, gentler than amber
+    emissiveIntensity: 2.0,
+    transparent: true,
+    opacity: 0.95,
+  });
+  const N_TENT = 10;
+  const N_BEADS = 8;
+  for (let i = 0; i < N_TENT; i++) {
+    const angle = (i / N_TENT) * Math.PI * 2;
+    const startX = Math.cos(angle) * BELL_R * 0.72;
+    const startZ = Math.sin(angle) * BELL_R * 0.72;
+    const startY = BELL_Y - 0.02;    // just under the rim
+    const tentLen = 0.32 + Math.random() * 0.25;
+
+    const tentGroup = new THREE.Group();
+    tentGroup.userData.phase = Math.random() * Math.PI * 2;
+    tentGroup.userData.angle = angle;
+    tentGroup.userData.startX = startX;
+    tentGroup.userData.startZ = startZ;
+    tentGroup.userData.startY = startY;
+    tentGroup.userData.tentLen = tentLen;
+
+    const beads = [];
+    for (let b = 0; b < N_BEADS; b++) {
+      const t = (b + 0.5) / N_BEADS;
+      const beadSize = 0.009 * (1 - t * 0.55);  // taper toward tip
+      const bead = new THREE.Mesh(
+        new THREE.SphereGeometry(beadSize, 8, 6),
+        beadMat,
+      );
+      bead.userData.t = t;
+      tentGroup.add(bead);
+      beads.push(bead);
+    }
+    tentGroup.userData.beads = beads;
+    g.add(tentGroup);
+    tentacles.push(tentGroup);
+  }
+
+  // ─── Two soft-warm point lights — enough glow to pool on the sand
+  //      without overwhelming the scene's cool night palette. ───
+  const warmLight = new THREE.PointLight(0xffd8a8, 1.9, 5.5);
+  warmLight.position.y = BELL_Y;
+  g.add(warmLight);
+
+  const softWarm = new THREE.PointLight(0xffe8c0, 0.6, 3);
+  softWarm.position.y = BELL_Y - 0.18;
+  g.add(softWarm);
+
+  // Mark every mesh for raycast so anywhere on the jellyfish is clickable
+  g.traverse(o => { if (o.isMesh) o.userData.isLantern = true; });
+  g.userData.isLantern = true;
+  g.userData.tentacles = tentacles;
+  g.userData.specks = specks;
+  g.userData.innerLight = warmLight;
+  g.userData.coreMesh = core;
+  g.userData.bellY = BELL_Y;
+
+  return g;
+}
+
+const jellyfishLantern = makeJellyfishLantern();
+// Place the lantern on the VIEWER'S right of the shrine (not the shrine's
+// own local +x — that puts it behind-and-right of the shrine from camera).
+// Default camera theta = 2.27, phi = 1.35; camera_right in world XZ is
+// cross(up, camera_forward), which works out to roughly (0.64, 0, 0.76).
+// That direction is visibly to the right of the shrine from the opening view.
+{
+  const rightX = 0.64, rightZ = 0.76;
+  const lx = 2.4 + rightX * 1.6;
+  const lz = 9.2 + rightZ * 1.6;
+  jellyfishLantern.position.set(lx, groundYAt(lx, lz) + 0.02, lz);
+  jellyfishLantern.rotation.y = Math.random() * Math.PI * 2;
+}
+jellyfishLantern.visible = false;  // shown only when demoNightMode is on
+scene.add(jellyfishLantern);
+
+// ═══ reef bedrock — natural-looking rocks ═══
+function addReefRock(x, z, size, y = 0) {
+  const g = new THREE.Group();
+  const n = 2 + Math.floor(Math.random()*3);
+  // random base color
+  const baseHue = 0.07 + Math.random() * 0.05;
+  const baseSat = 0.12 + Math.random() * 0.1;
+  const baseLig = 0.24 + Math.random() * 0.1;
+  for (let i = 0; i < n; i++) {
+    const sz = size * (0.6 + Math.random()*0.5);
+    const rg = new THREE.DodecahedronGeometry(sz, 0);
+    // displace vertices to break up the dodec regularity
+    const rp = rg.attributes.position;
+    for (let k = 0; k < rp.count; k++) {
+      const v = new THREE.Vector3().fromBufferAttribute(rp, k);
+      const nrm = v.clone().normalize();
+      const noise = (hash2(v.x*7+i, v.z*7) - 0.5) * sz * 0.35;
+      v.addScaledVector(nrm, noise);
+      rp.setXYZ(k, v.x, v.y, v.z);
+    }
+    rg.computeVertexNormals();
+    const r = new THREE.Mesh(rg, new THREE.MeshStandardMaterial({
+      color: new THREE.Color().setHSL(baseHue, baseSat, baseLig + Math.random()*0.06),
+      roughness: 0.98, flatShading: true
+    }));
+    r.position.set(
+      (Math.random()-0.5)*size*0.5,
+      sz*0.3 - Math.random()*sz*0.3,
+      (Math.random()-0.5)*size*0.5
+    );
+    r.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+    g.add(r);
+  }
+  g.position.set(x, y, z);
+  scene.add(g);
+  return g;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CORAL REGISTRY — 7 species loaded from meshopt-compressed GLBs in assets/models/
+// Each entry ties a body metric to a visual mapping (scale / color / GLB path).
+// See CLAUDE.md §"Body Data → Coral Visual Mapping Table".
+// ═══════════════════════════════════════════════════════════════════════
+
+// min/max are tuned to Lorriane's typical daily variation window (not Oura's
+// theoretical range) so subtle day-to-day changes produce visible hue shifts.
+// Colors walk a large hue arc (not just light/dark) so even a 10% data
+// change is readable; palette biases toward spring-reef pastels (no crimson,
+// no black-brown) for a fresh, multicolored feel.
+const CORAL_REGISTRY = {
+  favia: {  // brain coral · Sleep
+    metric: 'sleep',       min: 58,   max: 92,      // was 40-100
+    scaleMin: 0.90, scaleMax: 1.50,
+    colorLow: '#8ab4a8', colorHigh: '#f0d870',       // sage teal → honey yellow
+    glbPath: 'assets/models/favia.glb',
+  },
+  gorgonia: {  // sea fan · HRV — soft coral, sways with the current
+    metric: 'hrv',         min: 35,   max: 80,      // was 20-90
+    scaleMin: 0.85, scaleMax: 1.55,
+    colorLow: '#9c9cc8', colorHigh: '#f0b0d0',       // lavender grey → cherry-blossom pink
+    glbPath: 'assets/models/gorgonia.glb',
+    swayAmp: 0.10,                                   // ~5.7° rotation amplitude
+    swayFreq: 0.22,                                  // Hz — slow, 4.5s per cycle
+  },
+  xenia: {  // pulsating coral · RHR (inverse scale)
+    metric: 'rhr',         min: 48,   max: 80,      // was 45-85
+    scaleMin: 0.90, scaleMax: 1.55,
+    scaleInverse: true,                              // low RHR = relaxed = large
+    colorLow: '#88cabf', colorHigh: '#f5bc98',       // lake jade → peach
+    glbPath: 'assets/models/xenia.glb',
+    pulseDriven: true,                               // RHR/60 Hz pulse
+    swayAmp: 0.05,                                   // lighter sway on top of pulse
+    swayFreq: 0.30,
+  },
+  acropora: {  // staghorn · Activity
+    metric: 'activity',    min: 40,   max: 95,      // was 30-100
+    scaleMin: 0.85, scaleMax: 1.65,                  // widest — activity is most kinetic
+    colorLow: '#d8e088', colorHigh: '#f8a890',       // tender lime → soft coral peach
+    glbPath: 'assets/models/acropora.glb',
+  },
+  fungia: {  // disc coral · Deep Sleep
+    metric: 'deepSleep',   min: 30,   max: 110,     // was 0-180
+    scaleMin: 0.90, scaleMax: 1.45,                  // tightened — no "giant disc"
+    colorLow: '#d8d0c8', colorHigh: '#e8b0c0',       // misty cream → rose pink
+    glbPath: 'assets/models/fungia.glb',
+  },
+  millepora: {  // fire coral · Body Temp deviation (bipolar, abs)
+    metric: 'bodyTemp',    min: -1.0, max: 1.0,     // narrowed from ±1.5/+2.0
+    scaleMin: 0.95, scaleMax: 1.45,
+    scaleFromAbs: true,
+    colorLow: '#c8e0e8', colorHigh: '#f0a098',       // ice blue → peach-blush (no crimson)
+    colorMid: '#f4d888',                              // soft gold at baseline
+    glbPath: 'assets/models/millepora.glb',
+  },
+  pocillopora: {  // fine-branched staghorn · Resp Rate
+    metric: 'respRate',    min: 11,   max: 17,      // was 10-20
+    scaleMin: 0.90, scaleMax: 1.40,
+    colorLow: '#b8d0e0', colorHigh: '#d8b8e0',       // pale sky blue → soft lilac
+    glbPath: 'assets/models/pocillopora.glb',
+  },
+};
+
+// Cluster layout: RHR at center (CLAUDE.md "Coral Placement in Cluster"),
+// 6 others around a ring. Balance: small enough radius that a cluster reads
+// as a single "day" unit, while each coral is shrunk (CORAL_CLUSTER_SCALE
+// 0.30) to keep the worst-case intersection mild. Dense branched corals may
+// lightly overlap — that reads as "grown together" more than perspective clipping.
+const CLUSTER_RING_R = 0.42;
+const CORAL_CLUSTER_SCALE = 0.30;
+const CLUSTER_LAYOUT = [
+  { key: 'xenia',       x: 0, z: 0 },                               // center — heart
+  { key: 'favia',       angle: 0   * Math.PI / 180 },               // N
+  { key: 'gorgonia',    angle: 60  * Math.PI / 180 },               // NE
+  { key: 'millepora',   angle: 120 * Math.PI / 180 },               // SE
+  { key: 'fungia',      angle: 180 * Math.PI / 180 },               // S
+  { key: 'acropora',    angle: 240 * Math.PI / 180 },               // SW
+  { key: 'pocillopora', angle: 300 * Math.PI / 180 },               // NW
+];
+
+// ═══ Coral loader: fetch each GLB once, cache a template, clone per cluster ═══
+const coralTemplates = new Map();
+const coralLoader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+
+// Load one species and wrap it so its base sits at the wrapper's origin.
+// Wrapper pattern is load-bearing: buildCoralInstance later does
+// `coral.scale.multiplyScalar(...)` and `coral.position.set(...)` — doing
+// those on the wrapper keeps the inner model's base-alignment intact no
+// matter how the wrapper is scaled or translated later.
+function loadCoralTemplate(key) {
+  if (coralTemplates.has(key)) return Promise.resolve(coralTemplates.get(key));
+  const reg = CORAL_REGISTRY[key];
+  if (!reg) return Promise.reject(new Error(`Unknown coral: ${key}`));
+  return new Promise((resolve, reject) => {
+    coralLoader.load(
+      reg.glbPath,
+      (gltf) => {
+        const model = gltf.scene;
+        const bbox = new THREE.Box3().setFromObject(model);
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+        const height = bbox.max.y - bbox.min.y;
+        const norm = height > 0 ? 1.0 / height : 1.0;
+        // Scale first, THEN position (offset must be in post-scale units).
+        model.scale.setScalar(norm);
+        model.position.set(
+          -center.x * norm,
+          -bbox.min.y * norm,
+          -center.z * norm,
+        );
+        model.traverse(o => {
+          if (o.isMesh) {
+            o.castShadow = true;
+            o.receiveShadow = true;
+            // Path B: strip baseColorTexture so material.color fully drives
+            // the surface color (Oura-style GLBs often ship with deep-brown
+            // baseColor textures that crush our spring palette when multiplied).
+            // Keep normalMap / roughnessMap / metalnessMap — geometric detail
+            // and surface microstructure survive; only the flat hue is dropped.
+            if (o.material) {
+              const mats = Array.isArray(o.material) ? o.material : [o.material];
+              mats.forEach(m => {
+                if (m.map) { m.map = null; m.needsUpdate = true; }
+              });
+            }
+          }
+        });
+        // Wrap: wrapper.position = (0,0,0), inner model carries the offset.
+        // Any scale/position applied later is on the wrapper — inner model
+        // keeps its own base-at-origin alignment relative to the wrapper.
+        const wrapper = new THREE.Group();
+        wrapper.name = `coral:${key}`;
+        wrapper.add(model);
+        coralTemplates.set(key, wrapper);
+        resolve(wrapper);
+      },
+      undefined,
+      reject
+    );
+  });
+}
+
+// Preload all 7 in parallel; callback reports progress per-model.
+async function preloadAllCorals(onProgress) {
+  const keys = Object.keys(CORAL_REGISTRY);
+  let done = 0;
+  await Promise.all(keys.map(async (key) => {
+    try {
+      await loadCoralTemplate(key);
+    } catch (err) {
+      console.error(`Failed to load coral ${key}:`, err);
+    }
+    done++;
+    onProgress?.(done, keys.length, key);
+  }));
+}
+
+// Build one coral instance from the cached template, applying data-driven
+// scale + color and (for Xenia) pulse rate. All 7 species now vary on both
+// dimensions simultaneously; the combined signal reads as the species'
+// "health for this day."
+function buildCoralInstance(key, rawValue) {
+  const reg = CORAL_REGISTRY[key];
+  const template = coralTemplates.get(key);
+  if (!reg || !template) return null;
+
+  const coral = template.clone(true);
+  // Clone materials so per-cluster tints don't mutate the shared template.
+  coral.traverse(o => {
+    if (o.isMesh && o.material) {
+      o.material = Array.isArray(o.material)
+        ? o.material.map(m => m.clone())
+        : o.material.clone();
+    }
+  });
+
+  // ─── Normalize raw value to t ∈ [0, 1] ───
+  // Millepora (bodyTemp) uses abs-from-baseline: either direction of deviation
+  // drives the stress response. Everything else is a simple (raw-min)/range.
+  let t;
+  if (reg.scaleFromAbs) {
+    const maxAbs = Math.max(Math.abs(reg.min), Math.abs(reg.max));
+    t = Math.min(1, Math.abs(rawValue) / maxAbs);
+  } else {
+    t = Math.max(0, Math.min(1, (rawValue - reg.min) / (reg.max - reg.min)));
+  }
+
+  // ─── Scale: data-driven size ───
+  // Xenia inverts: low RHR = relaxed body = coral opens wider; high RHR = tight.
+  const scaleT = reg.scaleInverse ? (1 - t) : t;
+  const dataScale = reg.scaleMin + (reg.scaleMax - reg.scaleMin) * scaleT;
+  coral.scale.multiplyScalar(dataScale * CORAL_CLUSTER_SCALE);
+
+  // ─── Color: data-driven hue/tone ───
+  // Millepora bipolar: raw<0 lerps low→mid (cooling), raw≥0 lerps mid→high (warming).
+  // Everything else lerps low→high on t. Xenia intentionally doesn't invert
+  // color — high RHR still reads "amber/anxious" so scale + color point the
+  // same direction as sensation (small & amber = stressed body).
+  let color;
+  if (reg.colorMid) {
+    const mid = new THREE.Color(reg.colorMid);
+    if (rawValue < 0) {
+      const tb = Math.min(1, Math.abs(rawValue) / Math.abs(reg.min));
+      color = new THREE.Color(reg.colorLow).lerp(mid, 1 - tb);
+    } else {
+      const tb = Math.min(1, rawValue / reg.max);
+      color = mid.clone().lerp(new THREE.Color(reg.colorHigh), tb);
+    }
+  } else {
+    color = new THREE.Color(reg.colorLow).lerp(new THREE.Color(reg.colorHigh), t);
+  }
+
+  // Apply color with per-mesh life gradient. Real corals aren't painted a
+  // flat color — their tips read brighter/warmer than their bases. We walk
+  // the mesh list and nudge hue/lightness per index so the inner structure
+  // keeps a living gradient instead of looking airbrushed-over.
+  const meshes = [];
+  coral.traverse(o => { if (o.isMesh && o.material?.color) meshes.push(o); });
+  const baseHsl = { h: 0, s: 0, l: 0 };
+  color.getHSL(baseHsl);
+
+  meshes.forEach((o, idx) => {
+    // −0.5 (bottom/base mesh) .. +0.5 (top/tip mesh) — relies on GLB mesh
+    // traversal order being roughly base→tip (holds for most reef species).
+    const t = meshes.length > 1 ? (idx / (meshes.length - 1)) - 0.5 : 0;
+    const perMesh = new THREE.Color().setHSL(
+      (baseHsl.h + t * 0.035 + 1) % 1,                       // ±0.0175 hue
+      Math.min(1, baseHsl.s * 1.65),                          // +65% saturation
+      Math.max(0.15, Math.min(0.85, baseHsl.l + t * 0.11)),   // ±0.055 lightness
+    );
+    o.material.color.copy(perMesh);
+    if (o.material.emissive) {
+      // Self-glow so spring pastels stay vivid under water fog. Tips glow
+      // slightly more than bases (small life-spark feel).
+      o.material.emissive.copy(perMesh).multiplyScalar(0.22 + t * 0.05);
+    }
+  });
+
+  if (reg.pulseDriven) {
+    coral.userData.pulseHz = rawValue / 60; // RHR/60 Hz as CLAUDE.md specifies
+    coral.userData.type = 'xenia';
+  }
+
+  // Sway: soft corals (Gorgonia, Xenia) drift in the current. Per-instance
+  // phase + frequency jitter so neighboring corals in the same cluster
+  // don't move in lockstep — reads as actual water motion, not a metronome.
+  if (reg.swayAmp) {
+    coral.userData.swayAmp   = reg.swayAmp;
+    coral.userData.swayFreq  = reg.swayFreq * (0.8 + Math.random() * 0.4);
+    coral.userData.swayPhase = Math.random() * Math.PI * 2;
+  }
+
+  return coral;
+}
+
+// (legacy procedural coral generators removed — buildCoralInstance() above now
+// handles all 7 species via GLB loading + data-driven scale/color mapping)
+
+// ═══════════════════════════════════════════════════════════════════════
+// BOTTLE — prescription-bottle shape, hovering above today's cluster
+// ═══════════════════════════════════════════════════════════════════════
+function makeBottle(filled = false, resonance = 'neutral') {
+  const g = new THREE.Group();
+
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0xb8d8dc,
+    roughness: 0.1,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.55,
+    emissive: 0x2a5060,
+    emissiveIntensity: filled ? 0.15 : 0.35,
+  });
+  glassMat.side = THREE.DoubleSide;
+
+  // apothecary-style squat bottle
+  const bodyGeo = new THREE.CylinderGeometry(0.12, 0.14, 0.28, 24);
+  const body = new THREE.Mesh(bodyGeo, glassMat);
+  body.position.y = 0.14;
+  g.add(body);
+
+  // shoulder
+  const shoulderGeo = new THREE.CylinderGeometry(0.075, 0.12, 0.06, 18);
+  const shoulder = new THREE.Mesh(shoulderGeo, glassMat);
+  shoulder.position.y = 0.31;
+  g.add(shoulder);
+
+  // neck
+  const neckGeo = new THREE.CylinderGeometry(0.055, 0.075, 0.08, 16);
+  const neck = new THREE.Mesh(neckGeo, glassMat);
+  neck.position.y = 0.38;
+  g.add(neck);
+
+  // rim
+  const rimGeo = new THREE.TorusGeometry(0.06, 0.012, 8, 16);
+  const rim = new THREE.Mesh(rimGeo, glassMat);
+  rim.position.y = 0.42;
+  rim.rotation.x = Math.PI/2;
+  g.add(rim);
+
+  if (filled) {
+    // cork stopper
+    const corkGeo = new THREE.CylinderGeometry(0.058, 0.05, 0.08, 12);
+    const cork = new THREE.Mesh(corkGeo, new THREE.MeshStandardMaterial({
+      color: 0xa8824a, roughness: 0.85
+    }));
+    cork.position.y = 0.44;
+    g.add(cork);
+
+    // rolled paper inside
+    const paperGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.18, 8);
+    const paper = new THREE.Mesh(paperGeo, new THREE.MeshStandardMaterial({
+      color: 0xf5ecd0, roughness: 0.8
+    }));
+    paper.position.y = 0.16;
+    paper.rotation.z = 0.15;
+    g.add(paper);
+
+    // resonance visual
+    if (resonance === 'body_stronger') {
+      // body stronger than words → slight crack with light from within
+      const innerGlow = new THREE.PointLight(0xffd89a, 0.4, 0.5);
+      innerGlow.position.set(0, 0.2, 0);
+      g.add(innerGlow);
+    } else if (resonance === 'words_stronger') {
+      // words stronger than body → bottle faintly glowing outward
+      const outerGlow = new THREE.PointLight(0xaadfff, 0.5, 0.7);
+      outerGlow.position.set(0, 0.2, 0);
+      g.add(outerGlow);
+      body.material = body.material.clone();
+      body.material.emissive = new THREE.Color(0x6090a0);
+      body.material.emissiveIntensity = 0.35;
+    }
+  }
+
+  g.userData.type = 'bottle';
+  g.userData.filled = filled;
+  return g;
+}
+
+// ═══ small algae tuft for decoration ═══
+function makeAlgaeTuft(size = 0.15) {
+  const g = new THREE.Group();
+  const blades = 4 + Math.floor(Math.random() * 3);
+  const hue = 0.25 + Math.random() * 0.08;
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(hue, 0.5, 0.35),
+    roughness: 0.8, side: THREE.DoubleSide
+  });
+  for (let i = 0; i < blades; i++) {
+    const h = size * (0.8 + Math.random() * 0.6);
+    const bladeGeo = new THREE.PlaneGeometry(size * 0.15, h, 1, 4);
+    // curve the blade
+    const bp = bladeGeo.attributes.position;
+    for (let j = 0; j < bp.count; j++) {
+      const y = bp.getY(j);
+      const t = (y + h/2) / h;
+      bp.setZ(j, Math.pow(t, 2) * size * 0.3 * (Math.random() > 0.5 ? 1 : -1));
+    }
+    bladeGeo.computeVertexNormals();
+    const blade = new THREE.Mesh(bladeGeo, mat);
+    const a = Math.random() * Math.PI * 2;
+    const r = size * 0.15 * Math.random();
+    blade.position.set(Math.cos(a) * r, h / 2, Math.sin(a) * r);
+    blade.rotation.y = a + (Math.random() - 0.5) * 0.6;
+    blade.rotation.x = (Math.random() - 0.5) * 0.3;
+    blade.userData.baseRotX = blade.rotation.x;
+    blade.userData.baseRotZ = blade.rotation.z;
+    blade.userData.swayPhase = Math.random() * Math.PI * 2;
+    g.add(blade);
+  }
+  g.userData.algaeBlades = g.children.slice();
+  g.userData.type = 'algae';
+  return g;
+}
+
+// ═══ date label — small grey text floating above coral ═══
+function makeDateLabel(dateStr, isToday = false, overrideLabel = null) {
+  // format: "Apr 22"; or a caller-supplied override (used for the Hokora's
+  // "Today" tag). The "· Today" suffix used to be appended for today's
+  // cluster, but is now redundant — the shrine carries a "Today" label of
+  // its own. We keep `isToday` for color differentiation (gold vs pale).
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let label;
+  if (overrideLabel) {
+    label = overrideLabel;
+  } else {
+    const d = parseLocalDate(dateStr);
+    label = `${monthNames[d.getMonth()]} ${d.getDate()}`;
+  }
+
+  // render to canvas at higher resolution for crisp larger text
+  const canvas = document.createElement('canvas');
+  const dpr = 2;
+  const w = 320, h = 80;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+  ctx.font = '400 30px "Cormorant Garamond", serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = isToday ? 'rgba(230, 200, 150, 0.98)' : 'rgba(230, 230, 230, 0.9)';
+  ctx.fillText(label, w/2, h/2);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  const material = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    opacity: 0.95,
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.scale.set(2.0, 0.5, 1);   // ~1.7x bigger
+  sprite.renderOrder = 999;
+  return sprite;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// DAY CLUSTER — 5 corals + bottle + ground ring, positioned along river
+// ═══════════════════════════════════════════════════════════════════════
+
+// River positions: days[0] is oldest (upstream, far), days[last] is today (downstream, near)
+// Each day is placed on an alternating bank along the river curve,
+// on a natural rock outcrop at the river's edge.
+function riverPositions(n) {
+  const positions = [];
+  // Use the portion of the curve from t=0.03 (far upstream) to t=0.90 (just
+  // upstream of the Hokora). tEnd capped at 0.90 so today's cluster doesn't
+  // sit right on the shrine's doorstep; extra safety via exclusion zone below.
+  const tStart = 0.05;
+  const tEnd = 0.90;
+  // Hokora lives at (2.4, 0.4, 9.2); push any cluster that lands within this
+  // radius outward along the cluster→shrine axis so the shrine stays framed.
+  const HOKORA_X = 2.4, HOKORA_Z = 9.2;
+  const HOKORA_EXCLUDE_R = 2.4;
+  for (let i = 0; i < n; i++) {
+    const t = tStart + (tEnd - tStart) * (i / Math.max(1, n - 1));
+    const { p, perp } = riverAt(t);
+    // alternate banks (left/right)
+    const side = (i % 2 === 0) ? 1 : -1;
+    // distance from river center: wider spread now that the curve itself
+    // zigzags more — cluster footprint is ~1.5 units, and with more river
+    // curvature we want the clusters to fan out further along each bank.
+    const bankDist = 1.4 + Math.random() * 1.3;  // 1.4–2.7
+    // along-river jitter: ±0.85 so the alternating pattern isn't a rigid zigzag
+    const alongJitter = (Math.random() - 0.5) * 1.7;
+    const tan = riverCurve.getTangent(t).normalize();
+    let x = p.x + perp.x * bankDist * side + tan.x * alongJitter;
+    let z = p.z + perp.z * bankDist * side + tan.z * alongJitter;
+
+    // Hokora exclusion: if this cluster landed too close to the shrine,
+    // push it outward along the shrine→cluster direction. Keeps today's
+    // cluster from burying corals inside the shrine model.
+    const dx = x - HOKORA_X, dz = z - HOKORA_Z;
+    const hDist = Math.hypot(dx, dz);
+    if (hDist < HOKORA_EXCLUDE_R) {
+      // If exactly on the shrine, pick an arbitrary outward direction.
+      const nx = hDist > 0.001 ? dx / hDist : 1;
+      const nz = hDist > 0.001 ? dz / hDist : 0;
+      const shift = HOKORA_EXCLUDE_R - hDist;
+      x += nx * shift;
+      z += nz * shift;
+    }
+
+    // y height: on bank top (slightly raised)
+    // sample terrain height at approximately this location (use post-shift x,z)
+    const { dist } = distToRiver(x, z);
+    let y = 0;
+    if (dist < 1.4) {
+      const tt = dist / 1.4;
+      y = -0.25 * (1 - tt*tt);
+    } else if (dist < 3.8) {
+      const tt = (dist - 1.4) / 2.4;
+      const peak = Math.sin(Math.min(1, tt/0.4) * Math.PI * 0.5);
+      y = 0.35 * peak * (1 - tt*0.6);
+    } else {
+      y = 0.1;
+    }
+    positions.push({ x, z, y, side, t, perpX: perp.x, perpZ: perp.z });
+  }
+  return positions;
+}
+
+function makeGroundRing(size = 0.6) {
+  const ringGeo = new THREE.RingGeometry(size * 0.9, size, 24);
+  const ringMat = new THREE.MeshStandardMaterial({
+    color: 0xa08760, roughness: 1, transparent: true, opacity: 0.35,
+    side: THREE.DoubleSide
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI/2;
+  ring.position.y = 0.005;
+  return ring;
+}
+
+// place 7 corals around a cluster center, with bottle lying beside
+function buildDayCluster(day, pos, isToday = false) {
+  const group = new THREE.Group();
+  group.position.set(pos.x, pos.y, pos.z);
+
+  // Face the group toward the river (so the "bottle-side" of the cluster is toward water)
+  // perp points away from river on this bank; so the direction to river is -perp * side
+  // (since side==+1 means perp direction, side==-1 means -perp direction)
+  const toRiver = new THREE.Vector3(-pos.perpX * pos.side, 0, -pos.perpZ * pos.side);
+  group.rotation.y = Math.atan2(toRiver.x, toRiver.z) + (Math.random() - 0.5) * 0.3;
+
+  // readiness drives how big the cluster reads — only the 7 corals (size
+  // and spacing) are affected. The substrate rock, ground ring, and date
+  // label stay at a fixed size across all days so the reef's "geology"
+  // feels consistent while individual days breathe.
+  const readinessScore = day?.data?.readiness ?? 65;
+  const readinessT = Math.max(0, Math.min(1, (readinessScore - 50) / 40)); // 50..90 → 0..1
+  const clusterScale = 0.55 + readinessT * 1.25;  // 0.55× (poor day) .. 1.80× (great day)
+
+  // Substrate rock — a low, half-buried sand-colored mound. Much flatter,
+  // more irregular, and sand-toned than earlier versions so 30 clusters
+  // don't read as a "row of bowls" from a distance. Blends into the sand
+  // palette; just enough relief to feel like the corals have something
+  // to anchor onto.
+  const subRockGeo = new THREE.DodecahedronGeometry(0.5, 0);
+  const srp = subRockGeo.attributes.position;
+  for (let k = 0; k < srp.count; k++) {
+    const v = new THREE.Vector3().fromBufferAttribute(srp, k);
+    const nrm = v.clone().normalize();
+    v.addScaledVector(nrm, (Math.random() - 0.5) * 0.30);  // more irregular
+    srp.setXYZ(k, v.x, v.y, v.z);
+  }
+  subRockGeo.computeVertexNormals();
+  const subRockMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color().setHSL(0.08, 0.10, 0.48 + Math.random() * 0.08),
+    roughness: 0.98,
+    flatShading: true,
+  });
+  const subRock = new THREE.Mesh(subRockGeo, subRockMat);
+  subRock.position.y = -0.025;               // half-buried
+  subRock.scale.set(1.40, 0.35, 1.40);       // wide & flat — just a sand mound
+  subRock.rotation.y = Math.random() * Math.PI;
+  group.add(subRock);
+
+  // 7 corals on the outcrop per CLUSTER_LAYOUT: RHR (Xenia) at center,
+  // 6 others on a ring. Each instance is a GLB clone with data-driven
+  // scale + color already applied by buildCoralInstance.
+  const pulsatingCorals = [];
+  const swayingCorals = [];
+  // Per-day hue shift for subtle palette variation across days
+  const dateHash = day.date.split('').reduce((h, c) => ((h * 31) + c.charCodeAt(0)) | 0, 0);
+  const dayHueShift = ((Math.abs(dateHash) % 1000) / 1000) * 0.08 - 0.04; // ±0.04
+
+  CLUSTER_LAYOUT.forEach((slot) => {
+    const reg = CORAL_REGISTRY[slot.key];
+    const rawValue = day.data[reg.metric];
+    const coral = buildCoralInstance(slot.key, rawValue);
+    if (!coral) return;
+
+    // Place on ring or at center. Corals sit noticeably above the mound's
+    // peak (rock top ≈ y=0.15). y=0.22 gives ≥0.07m of clearance so even
+    // species whose GLB bbox.min.y is a bit below the visible base read as
+    // "rooted on top of" the mound rather than sinking into it.
+    const px = slot.angle !== undefined ? Math.cos(slot.angle) * CLUSTER_RING_R : slot.x;
+    const pz = slot.angle !== undefined ? Math.sin(slot.angle) * CLUSTER_RING_R : slot.z;
+    const pyJitter = (Math.random() - 0.5) * 0.03;
+    coral.position.set(px * clusterScale, 0.22 + pyJitter, pz * clusterScale);
+    // Coral's own size scales with readiness too — wrapper pattern keeps
+    // the base anchored to coral.position.y regardless of scale value.
+    coral.scale.multiplyScalar(clusterScale);
+    // Subtle tilt + random y rotation so the ring doesn't look mechanical
+    coral.rotation.x = (Math.random() - 0.5) * 0.12;
+    coral.rotation.z = (Math.random() - 0.5) * 0.12;
+    coral.rotation.y = Math.random() * Math.PI * 2;
+
+    // Per-day hue nudge for palette cohesion (kept small — CLAUDE.md low-sat rule)
+    if (dayHueShift !== 0) {
+      coral.traverse(o => {
+        if (o.isMesh && o.material?.color) {
+          const hsl = { h: 0, s: 0, l: 0 };
+          o.material.color.getHSL(hsl);
+          hsl.h = (hsl.h + dayHueShift + 1) % 1;
+          o.material.color.setHSL(hsl.h, hsl.s, hsl.l);
+        }
+      });
+    }
+
+    group.add(coral);
+    if (coral.userData.type === 'xenia') pulsatingCorals.push(coral);
+    if (coral.userData.swayAmp !== undefined) swayingCorals.push(coral);
+  });
+
+  // ───── bottle lying on the sand beside cluster (not floating) ─────
+  const bottleData = bottles[day.date];
+  const filled = !!bottleData;
+  const bottle = makeBottle(filled, bottleData?.resonance || 'neutral');
+  // position: on the sand slightly to the side of the coral cluster, toward the river
+  // position: on the sand, clearly SEPARATED from the coral cluster.
+  // Push the bottle outward toward the river, beyond the coral cluster's radius.
+  const bottleOffset = {
+    x: -pos.side * 1.2 + (Math.random() - 0.5) * 0.15,   // pushed outward toward river
+    z: 0.8 + (Math.random() - 0.5) * 0.2                  // forward of the cluster
+  };
+  // bottle sits on lower terrain (closer to river channel level, below bank top)
+  bottle.position.set(bottleOffset.x, -pos.y * 0.6 - 0.05, bottleOffset.z);
+  bottle.scale.setScalar(0.8);
+  // rotate bottle to lie on its side, pointing downriver
+  bottle.rotation.z = Math.PI / 2 + (Math.random() - 0.5) * 0.3;
+  bottle.rotation.y = (Math.random() - 0.5) * 0.8;
+  bottle.userData.dayDate = day.date;
+  bottle.userData.clusterGroup = group;
+  bottle.userData.baseRotZ = bottle.rotation.z;
+  bottle.userData.baseRotY = bottle.rotation.y;
+  bottle.userData.baseX = bottle.position.x;
+  bottle.userData.baseY = bottle.position.y;
+  bottle.userData.baseZ = bottle.position.z;
+  bottle.userData.isToday = isToday;
+  bottle.userData.filled = filled;
+  group.add(bottle);
+
+  // date label floating above coral cluster — fixed height + size so it
+  // stays readable regardless of the day's readiness-driven cluster size.
+  const dateLabel = makeDateLabel(day.date, isToday);
+  dateLabel.position.set(0, 1.2, 0);
+  group.add(dateLabel);
+
+  group.userData.day = day;
+  group.userData.bottle = bottle;
+  group.userData.isToday = isToday;
+  group.userData.pulsatingCorals = pulsatingCorals;
+  group.userData.swayingCorals = swayingCorals;
+  group.userData.dateLabel = dateLabel;
+  group.userData.clusterScale = clusterScale;   // exposed for debugging
+  return group;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// BUILD GARDEN
+// ═══════════════════════════════════════════════════════════════════════
+const clusters = [];
+let todayCluster = null;
+const bottleMeshes = []; // for raycasting
+
+function buildGarden() {
+  // clear
+  clusters.forEach(c => {
+    scene.remove(c);
+    c.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (Array.isArray(o.material)) o.material.forEach(m => m.dispose());
+        else o.material.dispose();
+      }
+    });
+  });
+  clusters.length = 0;
+  bottleMeshes.length = 0;
+
+  const positions = riverPositions(days.length);
+  days.forEach((day, i) => {
+    const isToday = (day.date === todayISO);
+    const cluster = buildDayCluster(day, positions[i], isToday);
+    scene.add(cluster);
+    clusters.push(cluster);
+    if (isToday) todayCluster = cluster;
+    bottleMeshes.push(cluster.userData.bottle);
+  });
+}
+
+// add permanent bedrock — sparse, smaller, to let corals be the focal point
+function addPermanentRocks() {
+  const N_ROCKS = 10;
+  const MIN_DIST_FROM_CLUSTER = 1.0;  // rocks must be at least this far from any coral cluster
+  let placed = 0;
+  let attempts = 0;
+  while (placed < N_ROCKS && attempts < 80) {
+    attempts++;
+    const t = Math.random();
+    const { p, perp } = riverAt(t);
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const dist = 2.5 + Math.random() * 1.3;
+    const x = p.x + perp.x * dist * side;
+    const z = p.z + perp.z * dist * side;
+
+    // Check distance from all coral clusters
+    let tooClose = false;
+    for (const c of clusters) {
+      const dx = x - c.position.x, dz = z - c.position.z;
+      if (dx*dx + dz*dz < MIN_DIST_FROM_CLUSTER * MIN_DIST_FROM_CLUSTER) {
+        tooClose = true;
+        break;
+      }
+    }
+    if (tooClose) continue;
+
+    const size = 0.15 + Math.random() * 0.3;
+    const bankT = (dist - 1.4) / 2.4;
+    const peak = Math.sin(Math.min(1, bankT/0.4) * Math.PI * 0.5);
+    const y = 0.35 * peak * (1 - bankT*0.6) - size * 0.3;
+    addReefRock(x, z, size, y);
+    placed++;
+  }
+}
+
+// Preload all 7 coral GLBs before building the garden. Update the loading
+// screen subtitle with progress; the ◈ breathing stays in place as ambient.
+const loadingSub = document.getElementById('loading-sub');
+await preloadAllCorals((done, total, key) => {
+  if (loadingSub) {
+    loadingSub.textContent = `growing the reef · ${done} / ${total} · ${key}`;
+  }
+});
+
+// Auto-sync from Oura if local config is set and today's cutoff has passed.
+// Happens silently during loading screen; surfaces errors in console, not UI.
+// If this fails, the cached days[] from loadDays() is used (graceful degrade).
+// Merge Oura data with a mock series to guarantee a full N-day window.
+// Any date Oura doesn't cover (today's not-yet-slept, missed nights, sensor
+// gaps) falls back to the mock value and is tagged source: 'mock-fill' so
+// we can tell it apart in logs / future visual treatments.
+function mergeOuraWithMockFill(ouraDays, nDays) {
+  const mock = generateMockDays(nDays);
+  const ouraByDate = new Map(ouraDays.map(d => [d.date, d]));
+  return mock.map(m =>
+    ouraByDate.get(m.date) || { ...m, source: 'mock-fill' }
+  );
+}
+
+async function autoSyncIfStale() {
+  if (!shouldAutoSync()) return false;
+  if (loadingSub) loadingSub.textContent = 'syncing with oura ring…';
+  try {
+    const ouraDays = await fetchOuraDays(30);
+    if (!ouraDays.length) throw new Error('Oura returned no days.');
+    days = mergeOuraWithMockFill(ouraDays, 30);
+    dataSource = 'oura';
+    await saveDays();
+    markSyncTime();
+    // New data → signatures change; invalidate cached omikuji
+    omikujiCache = {};
+    await saveOmikuji();
+    const realCount = days.filter(d => d.source === 'oura').length;
+    console.log(`[coral-garden] Synced ${realCount}/30 real Oura days, ${30 - realCount} mock-filled.`);
+    return true;
+  } catch (err) {
+    console.warn('[coral-garden] Auto-sync failed, using cached data:', err);
+    return false;
+  }
+}
+await autoSyncIfStale();
+if (loadingSub) loadingSub.textContent = 'settling into the reef';
+
+buildGarden();
+addPermanentRocks();   // moved AFTER buildGarden so clusters exist for avoidance
+scatterRiverbedLife();
+
+// ═══════════════════════════════════════════════════════════════════════
+// AMBIENT PARTICLES — floating debris / plankton
+// ═══════════════════════════════════════════════════════════════════════
+const particleCount = 180;
+const particleGeo = new THREE.BufferGeometry();
+const particlePos = new Float32Array(particleCount * 3);
+const particleSpd = new Float32Array(particleCount * 3);
+for (let i = 0; i < particleCount; i++) {
+  particlePos[i*3] = (Math.random() - 0.5) * 25;
+  particlePos[i*3+1] = Math.random() * 8;
+  particlePos[i*3+2] = (Math.random() - 0.5) * 25;
+  particleSpd[i*3] = (Math.random() - 0.5) * 0.005;
+  particleSpd[i*3+1] = 0.003 + Math.random() * 0.008;
+  particleSpd[i*3+2] = (Math.random() - 0.5) * 0.005;
+}
+particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+const particleMat = new THREE.PointsMaterial({
+  color: 0xffffff, size: 0.04, transparent: true, opacity: 0.35,
+  depthWrite: false, sizeAttenuation: true
+});
+const particles = new THREE.Points(particleGeo, particleMat);
+scene.add(particles);
+
+// ═══════════════════════════════════════════════════════════════════════
+// FISH SCHOOLS — InstancedMesh for performance
+// ═══════════════════════════════════════════════════════════════════════
+
+// Simple fish geometry: elongated flattened diamond shape
+// ─── Minimal geometry merger (since we don't import BufferGeometryUtils) ───
+function mergeGeos(geos) {
+  const merged = new THREE.BufferGeometry();
+  // Collect arrays
+  let totalPos = 0, totalIdx = 0;
+  const hasIndex = geos.every(g => g.index);
+  geos.forEach(g => {
+    totalPos += g.attributes.position.count;
+    if (hasIndex) totalIdx += g.index.count;
+  });
+  const positions = new Float32Array(totalPos * 3);
+  const normals = new Float32Array(totalPos * 3);
+  const indices = hasIndex ? new Uint32Array(totalIdx) : null;
+  let pOff = 0, iOff = 0, vOff = 0;
+  geos.forEach(g => {
+    const p = g.attributes.position.array;
+    const n = g.attributes.normal ? g.attributes.normal.array : null;
+    positions.set(p, pOff);
+    if (n) normals.set(n, pOff);
+    pOff += p.length;
+    if (hasIndex) {
+      const idx = g.index.array;
+      for (let k = 0; k < idx.length; k++) {
+        indices[iOff + k] = idx[k] + vOff;
+      }
+      iOff += idx.length;
+    }
+    vOff += g.attributes.position.count;
+  });
+  merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  if (hasIndex) merged.setIndex(new THREE.BufferAttribute(indices, 1));
+  return merged;
+}
+
+// Build a body of shape `form`, pointing +X, about 0.28 units long.
+// Shared tail fin appended at -X end.
+function makeFishGeometry(form) {
+  // ─── Body: sphere-based, remapped per-form ───
+  const bodyGeo = new THREE.SphereGeometry(0.06, 10, 7);
+  const bp = bodyGeo.attributes.position;
+  for (let i = 0; i < bp.count; i++) {
+    const v = new THREE.Vector3().fromBufferAttribute(bp, i);
+    switch (form) {
+      case 'slender': {
+        // needlefish — very long, very thin, cigar-shaped
+        v.x *= 3.2;  v.y *= 0.35; v.z *= 0.22;
+        if (v.x < 0) {
+          const t = Math.abs(v.x / 0.192);
+          v.y *= (1 - t * 0.6); v.z *= (1 - t * 0.6);
+        }
+        break;
+      }
+      case 'diamond': {
+        // butterflyfish — short body, tall flat diamond silhouette
+        v.x *= 1.3;  v.y *= 1.25; v.z *= 0.22;
+        // diamond profile: taper both head (+x) and tail (-x) in Y
+        const tx = Math.abs(v.x / 0.078);
+        v.y *= (1 - tx * 0.55);
+        break;
+      }
+      case 'triangular': {
+        // angelfish — triangular when viewed from side (head wide, tail narrow)
+        v.x *= 1.5;  v.y *= 1.05; v.z *= 0.2;
+        // taper Y strongly toward tail only
+        if (v.x < 0) {
+          const t = Math.abs(v.x / 0.09);
+          v.y *= (1 - t * 0.8); v.z *= (1 - t * 0.5);
+        } else {
+          // broaden the head
+          const t = v.x / 0.06;
+          v.y *= (1 + t * 0.15);
+        }
+        break;
+      }
+      case 'oval': {
+        // damselfish — oval, fairly round, moderate thickness
+        v.x *= 1.7;  v.y *= 0.75; v.z *= 0.45;
+        if (v.x < 0) {
+          const t = Math.abs(v.x / 0.102);
+          v.y *= (1 - t * 0.55); v.z *= (1 - t * 0.55);
+        }
+        break;
+      }
+      case 'round': {
+        // pufferfish — nearly spherical, tiny tail
+        v.x *= 1.15; v.y *= 0.95; v.z *= 0.8;
+        if (v.x < 0) {
+          const t = Math.abs(v.x / 0.069);
+          v.y *= (1 - t * 0.3); v.z *= (1 - t * 0.3);
+        }
+        break;
+      }
+      case 'elongated':
+      default: {
+        // classic reef fish — the original shape
+        v.x *= 2.2;  v.y *= 0.55; v.z *= 0.3;
+        if (v.x < 0) {
+          const t = Math.abs(v.x / 0.132);
+          v.y *= (1 - t * 0.5); v.z *= (1 - t * 0.5);
+        }
+      }
+    }
+    bp.setXYZ(i, v.x, v.y, v.z);
+  }
+  bodyGeo.computeVertexNormals();
+
+  // ─── Tail fin: forked triangle, sized/placed per form ───
+  const tail = FISH_TAIL_DEFS[form] || FISH_TAIL_DEFS.elongated;
+  const tailShape = new THREE.Shape();
+  tailShape.moveTo(0, 0);
+  tailShape.lineTo(-tail.length, tail.spread);
+  tailShape.lineTo(-tail.length * 0.6, 0);
+  tailShape.lineTo(-tail.length, -tail.spread);
+  tailShape.lineTo(0, 0);
+  const tailGeo = new THREE.ExtrudeGeometry(tailShape, {
+    depth: 0.008, bevelEnabled: false
+  });
+  tailGeo.translate(0, 0, -0.004);
+  tailGeo.translate(tail.anchorX, 0, 0);
+
+  const bodyNI = bodyGeo.toNonIndexed();
+  const tailNI = tailGeo.index ? tailGeo.toNonIndexed() : tailGeo;
+  const merged = mergeGeos([bodyNI, tailNI]);
+  merged.computeVertexNormals();
+  return merged;
+}
+
+// Per-form tail size/anchor so the fin scales with the body
+const FISH_TAIL_DEFS = {
+  slender:    { length: 0.05, spread: 0.035, anchorX: -0.19 },
+  diamond:    { length: 0.06, spread: 0.09,  anchorX: -0.078 },
+  triangular: { length: 0.07, spread: 0.08,  anchorX: -0.09 },
+  oval:       { length: 0.075, spread: 0.06, anchorX: -0.102 },
+  round:      { length: 0.04, spread: 0.035, anchorX: -0.069 },
+  elongated:  { length: 0.08, spread: 0.07,  anchorX: -0.125 },
+};
+
+// 6 fish species — each with its own silhouette (slender needlefish, diamond
+// butterflyfish, triangular angelfish, oval damselfish, round pufferfish,
+// elongated classic reef fish)
+const FISH_SPECIES = [
+  { count: 22, color: 0xc48a6a, scale: 1.0,  speed: 0.75, schools: 1, form: 'elongated'  },  // warm sandy brown
+  { count: 20, color: 0xd8b87a, scale: 0.75, speed: 1.0,  schools: 1, form: 'slender'    },  // muted yellow-tan needlefish
+  { count: 18, color: 0x6b8fa8, scale: 1.15, speed: 0.55, schools: 1, form: 'diamond'    },  // dusty slate-blue butterflyfish
+  { count: 16, color: 0xb86e78, scale: 0.85, speed: 0.9,  schools: 1, form: 'triangular' },  // faded-rose angelfish
+  { count: 14, color: 0x8a7a9a, scale: 1.0,  speed: 0.7,  schools: 1, form: 'round'      },  // lavender-grey puffer
+  { count: 16, color: 0x7ba8a0, scale: 0.9,  speed: 0.85, schools: 1, form: 'oval'       },  // sea-green damselfish
+];
+
+const fishSchools = [];
+FISH_SPECIES.forEach(species => {
+  const mat = new THREE.MeshStandardMaterial({
+    color: species.color,
+    roughness: 0.55,
+    metalness: 0.15,
+    emissive: 0x000000,
+    transparent: true,
+    opacity: 0.55,
+    depthWrite: false,
+  });
+  const speciesGeo = makeFishGeometry(species.form);
+  const mesh = new THREE.InstancedMesh(speciesGeo, mat, species.count);
+  mesh.renderOrder = 4;
+  // Initialize per-fish state, grouped into schools.
+  // Each school has a shared "lead direction" and "center" that evolve together.
+  const schoolCount = species.schools;
+  const fishPerSchool = Math.ceil(species.count / schoolCount);
+  const state = [];
+  const schoolsData = [];
+  for (let s = 0; s < schoolCount; s++) {
+    // Each school starts at a different place along the river
+    const t = 0.15 + (s + 0.5) / schoolCount * 0.7 + (Math.random() - 0.5) * 0.1;
+    const { p } = riverAt(t);
+    schoolsData.push({
+      leadDir: Math.random() * Math.PI * 2,
+      centerX: p.x + (Math.random() - 0.5) * 2,
+      centerY: 1.0 + Math.random() * 1.8,
+      centerZ: p.z + (Math.random() - 0.5) * 2,
+    });
+  }
+  for (let i = 0; i < species.count; i++) {
+    const schoolIdx = Math.min(schoolCount - 1, Math.floor(i / fishPerSchool));
+    const sd = schoolsData[schoolIdx];
+    // Formation offset: each fish has a STABLE relative position within the school.
+    // Compact school: short front-to-back, narrow sideways.
+    const idxInSchool = i - schoolIdx * fishPerSchool;
+    const forwardPos = (idxInSchool / fishPerSchool - 0.5) * 2.8 + (Math.random() - 0.5) * 0.5;
+    const sidePos = (Math.random() - 0.5) * 1.0;
+    const vertPos = (Math.random() - 0.5) * 0.6;
+    state.push({
+      x: sd.centerX + (Math.random() - 0.5) * 1.2,
+      y: sd.centerY + (Math.random() - 0.5) * 0.8,
+      z: sd.centerZ + (Math.random() - 0.5) * 1.2,
+      dirAngle: sd.leadDir + (Math.random() - 0.5) * 0.3,
+      phase: Math.random() * Math.PI * 2,
+      speedMul: 0.85 + Math.random() * 0.3,
+      scale: species.scale * (0.8 + Math.random() * 0.4),
+      schoolIdx,
+      // formation: each fish's preferred offset relative to school center (in school-local frame)
+      formFwd: forwardPos,
+      formSide: sidePos,
+      formUp: vertPos,
+    });
+  }
+  scene.add(mesh);
+  fishSchools.push({ mesh, state, species, schoolsData });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// GOD RAYS — volumetric light shafts from above
+// ═══════════════════════════════════════════════════════════════════════
+
+function makeGodRay(x, z, widthBase = 0.8, widthTop = 0.3, height = 14, opacity = 0.12) {
+  // Soft misty shaft: wide, translucent, NOT additive so it doesn't glow hot
+  const geo = new THREE.CylinderGeometry(widthTop, widthBase, height, 16, 1, true);
+  const mat = new THREE.MeshBasicMaterial({
+    color: 0xc8dde8,         // cool pale blue-white, not warm sunlight
+    transparent: true,
+    opacity: opacity,
+    blending: THREE.NormalBlending,  // NOT additive — no hot glow
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    fog: true,               // let fog blend them into distance
+  });
+  const ray = new THREE.Mesh(geo, mat);
+  ray.position.set(x, height / 2, z);
+  ray.rotation.z = (Math.random() - 0.5) * 0.1;
+  ray.rotation.x = (Math.random() - 0.5) * 0.05;
+  ray.renderOrder = 3;
+  return ray;
+}
+
+// Scatter god rays along the river — fewer, wider, much more subtle
+const godRays = [];
+for (let i = 0; i < 5; i++) {
+  const t = 0.1 + (i / 5) * 0.85 + (Math.random() - 0.5) * 0.05;
+  const { p } = riverAt(t);
+  const offX = (Math.random() - 0.5) * 6;
+  const opacity = 0.04 + Math.random() * 0.03;   // MUCH lower: 0.04-0.07 instead of 0.08-0.16
+  const widthBase = 1.2 + Math.random() * 0.6;   // wider for softer look
+  const widthTop = 0.5 + Math.random() * 0.3;
+  const ray = makeGodRay(p.x + offX, p.z + (Math.random() - 0.5) * 2, widthBase, widthTop, 16, opacity);
+  ray.userData.baseOpacity = opacity;
+  ray.userData.phase = Math.random() * Math.PI * 2;
+  scene.add(ray);
+  godRays.push(ray);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// TIME-OF-DAY LIGHTING
+// ═══════════════════════════════════════════════════════════════════════
+// DEBUG: set to true to freeze time at noon for development / visibility
+const FORCE_NOON = true;
+// Demo night override — toggled by the "NIGHT MODE" button in the date
+// panel. Wins over FORCE_NOON so reviewers can flip to night on demand
+// for the jellyfish-lantern demo.
+let demoNightMode = false;
+
+function updateLightByTime() {
+  const now = new Date();
+  let h = now.getHours() + now.getMinutes()/60;
+  if (demoNightMode) h = 22;       // 10pm — deep night
+  else if (FORCE_NOON) h = 9.5;    // morning — bright but with slightly angled sun
+  // normalized sun angle: sunrise ~6, sunset ~18
+  const dayT = (h - 6) / 12; // 0 at sunrise, 1 at sunset
+  const isNight = (h < 6 || h > 18);
+
+  let sunColor, sunIntensity, ambientColor, ambientIntensity;
+  let fogColor, sceneColor;
+  let phase = '';
+
+  if (isNight) {
+    sunColor = new THREE.Color(0x3a5a7a);
+    sunIntensity = 0.15;
+    ambientColor = new THREE.Color(0x1a3a50);
+    ambientIntensity = 0.3;
+    fogColor = new THREE.Color(0x050f18);
+    sceneColor = 0x050f18;
+    phase = (h < 6) ? 'Midnight' : 'Night';
+  } else if (dayT < 0.12) {
+    // dawn
+    sunColor = new THREE.Color(0xffb088);
+    sunIntensity = 0.7;
+    ambientColor = new THREE.Color(0x5a7080);
+    ambientIntensity = 0.4;
+    fogColor = new THREE.Color(0x1a3648);
+    sceneColor = 0x1a3648;
+    phase = 'Dawn';
+  } else if (dayT < 0.35) {
+    // morning: bright, clear, cheerful
+    sunColor = new THREE.Color(0xfff8e0);
+    sunIntensity = 1.4;
+    ambientColor = new THREE.Color(0x9cc8dc);
+    ambientIntensity = 0.8;
+    fogColor = new THREE.Color(0x5ea0c0);
+    sceneColor = 0x5ea0c0;
+    phase = 'Morning';
+  } else if (dayT < 0.65) {
+    sunColor = new THREE.Color(0xffffff);
+    sunIntensity = 1.1;
+    ambientColor = new THREE.Color(0x88b8d0);
+    ambientIntensity = 0.75;
+    fogColor = new THREE.Color(0x3a7a9a);      // medium blue, more saturated
+    sceneColor = 0x3a7a9a;
+    phase = 'Noon';
+  } else if (dayT < 0.88) {
+    sunColor = new THREE.Color(0xffd0a0);
+    sunIntensity = 0.9;
+    ambientColor = new THREE.Color(0x6090a8);
+    ambientIntensity = 0.45;
+    fogColor = new THREE.Color(0x1a3040);
+    sceneColor = 0x1a3040;
+    phase = 'Afternoon';
+  } else {
+    // dusk
+    sunColor = new THREE.Color(0xff8048);
+    sunIntensity = 0.6;
+    ambientColor = new THREE.Color(0x4a5a70);
+    ambientIntensity = 0.4;
+    fogColor = new THREE.Color(0x100f20);
+    sceneColor = 0x100f20;
+    phase = 'Dusk';
+  }
+
+  sun.color.copy(sunColor);
+  sun.intensity = sunIntensity;
+  // sun position: follows arc
+  const arcT = isNight ? 0.5 : dayT;
+  const sunAngle = (arcT - 0.5) * Math.PI;
+  sun.position.set(Math.sin(sunAngle) * 12, Math.cos(sunAngle) * 12 + (isNight ? -8 : 2), 3);
+
+  ambient.color.copy(ambientColor);
+  ambient.intensity = ambientIntensity;
+  scene.fog.color.copy(fogColor);
+  renderer.setClearColor(sceneColor);
+
+  return { phase, hour: h };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CAMERA — orbit with zoom + dive mode
+// ═══════════════════════════════════════════════════════════════════════
+const cam = {
+  // Look AT the Hokora shrine, from the front.
+  // Hokora is at (2.4, 0.4, 9.2) with rotation.y = -0.7 radians,
+  // meaning its front (where the door/enshrined tooth faces) points toward world direction
+  // (sin(-0.7), 0, cos(-0.7)) ≈ (-0.644, 0, 0.765) — roughly toward -x and +z from the shrine.
+  // So camera must stand in that front direction relative to shrine.
+  target: new THREE.Vector3(2.4, 0.85, 9.2),   // aim at shrine's face level
+  radius: 4.5,
+  // theta ≈ atan2(sin_theta, cos_theta) from offset (-0.644, +0.765) → ~2.27 rad (130°)
+  theta: 2.27,
+  phi: 1.35,       // low angle, looking slightly up at the shrine (pi/2 = horizon, pi/2 + eps = from below)
+  minRadius: 2.5,
+  maxRadius: 22,
+  minPhi: 0.2,
+  maxPhi: 1.5,
+  dragging: false,
+  diveMode: false,
+  diveTarget: null,
+  lastX: 0, lastY: 0
+};
+
+function updateCameraFromOrbit() {
+  const x = cam.target.x + cam.radius * Math.sin(cam.phi) * Math.cos(cam.theta);
+  const y = cam.target.y + cam.radius * Math.cos(cam.phi);
+  const z = cam.target.z + cam.radius * Math.sin(cam.phi) * Math.sin(cam.theta);
+  camera.position.set(x, y, z);
+  camera.lookAt(cam.target);
+}
+updateCameraFromOrbit();
+
+// Mouse / touch handling
+const canvas = renderer.domElement;
+
+// Pan: move cam.target. "dx" is screen-right, "dy" is screen-up.
+// For screen-up ("forward"), we use the horizontal projection of camera-forward,
+// so pushing forward doesn't fly you into the seafloor.
+function panCamera(dx, dy) {
+  const forward = new THREE.Vector3().subVectors(cam.target, camera.position);
+  // project to horizontal
+  const horizForward = new THREE.Vector3(forward.x, 0, forward.z).normalize();
+  const right = new THREE.Vector3().crossVectors(horizForward, new THREE.Vector3(0,1,0)).normalize();
+  const panSpeed = cam.radius * 0.0018;
+  cam.target.addScaledVector(right, -dx * panSpeed);
+  cam.target.addScaledVector(horizForward, dy * panSpeed);
+  updateCameraFromOrbit();
+}
+
+// prevent default context menu on right-click so we can pan
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('mousedown', e => {
+  cam.dragging = true;
+  cam.panMode = (e.button === 2) || e.shiftKey; // right click or shift = pan
+  cam.lastX = e.clientX; cam.lastY = e.clientY;
+});
+window.addEventListener('mouseup', () => { cam.dragging = false; cam.panMode = false; });
+window.addEventListener('mousemove', e => {
+  if (!cam.dragging) return;
+  const dx = e.clientX - cam.lastX;
+  const dy = e.clientY - cam.lastY;
+  cam.lastX = e.clientX; cam.lastY = e.clientY;
+  if (cam.panMode) {
+    panCamera(dx, dy);
+  } else {
+    cam.theta -= dx * 0.006;
+    cam.phi = Math.max(cam.minPhi, Math.min(cam.maxPhi, cam.phi - dy * 0.005));
+    updateCameraFromOrbit();
+  }
+});
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  cam.radius = Math.max(cam.minRadius, Math.min(cam.maxRadius, cam.radius + e.deltaY * 0.008));
+  updateCameraFromOrbit();
+}, { passive: false });
+
+// Keyboard pan: WASD / arrow keys
+const keyState = {};
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  keyState[e.key.toLowerCase()] = true;
+});
+window.addEventListener('keyup', e => {
+  keyState[e.key.toLowerCase()] = false;
+});
+// Pan loop for keyboard + nav-pad (runs each frame inside animate)
+const navPadState = { forward: false, back: false, left: false, right: false };
+function tickKeyboardPan() {
+  const speed = 8;
+  let dx = 0, dy = 0;
+  if (keyState['a'] || keyState['arrowleft']  || navPadState.left)  dx += speed;
+  if (keyState['d'] || keyState['arrowright'] || navPadState.right) dx -= speed;
+  if (keyState['w'] || keyState['arrowup']    || navPadState.forward) dy += speed;
+  if (keyState['s'] || keyState['arrowdown']  || navPadState.back)    dy -= speed;
+  if (dx !== 0 || dy !== 0) panCamera(dx, dy);
+}
+
+// ═══ nav-pad button hookup (press-and-hold) ═══
+document.querySelectorAll('.nav-btn[data-dir]').forEach(btn => {
+  const dir = btn.getAttribute('data-dir');
+  const start = (e) => { e.preventDefault(); navPadState[dir] = true; btn.classList.add('active'); };
+  const end   = (e) => { navPadState[dir] = false; btn.classList.remove('active'); };
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('mouseup', end);
+  btn.addEventListener('mouseleave', end);
+  btn.addEventListener('touchstart', start, { passive: false });
+  btn.addEventListener('touchend', end);
+  btn.addEventListener('touchcancel', end);
+});
+
+// reset-view button
+document.getElementById('reset-view').addEventListener('click', async () => {
+  await animateCameraTo(new THREE.Vector3(2.4, 0.85, 9.2), 4.5, 1.35, 2.27, 900);
+});
+
+// touch
+let touchState = null;
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    touchState = { x: e.touches[0].clientX, y: e.touches[0].clientY, pinch: false };
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    touchState = { pinch: true, dist: Math.sqrt(dx*dx + dy*dy) };
+  }
+}, { passive: true });
+canvas.addEventListener('touchmove', e => {
+  if (!touchState) return;
+  if (e.touches.length === 1 && !touchState.pinch) {
+    const dx = e.touches[0].clientX - touchState.x;
+    const dy = e.touches[0].clientY - touchState.y;
+    touchState.x = e.touches[0].clientX; touchState.y = e.touches[0].clientY;
+    cam.theta -= dx * 0.006;
+    cam.phi = Math.max(cam.minPhi, Math.min(cam.maxPhi, cam.phi - dy * 0.005));
+    updateCameraFromOrbit();
+  } else if (e.touches.length === 2 && touchState.pinch) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const delta = touchState.dist - dist;
+    cam.radius = Math.max(cam.minRadius, Math.min(cam.maxRadius, cam.radius + delta * 0.02));
+    touchState.dist = dist;
+    updateCameraFromOrbit();
+  }
+}, { passive: true });
+canvas.addEventListener('touchend', () => { touchState = null; });
+
+// Dive animation
+function animateCameraTo(target, radius, phi, theta, duration = 1200) {
+  const start = {
+    tx: cam.target.x, ty: cam.target.y, tz: cam.target.z,
+    r: cam.radius, phi: cam.phi, theta: cam.theta
+  };
+  const end = {
+    tx: target.x, ty: target.y, tz: target.z,
+    r: radius, phi, theta
+  };
+  const t0 = performance.now();
+  return new Promise(resolve => {
+    function step() {
+      const elapsed = performance.now() - t0;
+      const t = Math.min(1, elapsed / duration);
+      const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      cam.target.set(
+        start.tx + (end.tx - start.tx) * e,
+        start.ty + (end.ty - start.ty) * e,
+        start.tz + (end.tz - start.tz) * e
+      );
+      cam.radius = start.r + (end.r - start.r) * e;
+      cam.phi = start.phi + (end.phi - start.phi) * e;
+      cam.theta = start.theta + (end.theta - start.theta) * e;
+      updateCameraFromOrbit();
+      if (t < 1) requestAnimationFrame(step);
+      else resolve();
+    }
+    step();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RAYCASTING — click on bottles
+// ═══════════════════════════════════════════════════════════════════════
+const raycaster = new THREE.Raycaster();
+const mouseVec = new THREE.Vector2();
+
+function getBottleAtPointer(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  mouseVec.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseVec, camera);
+  // gather all bottle descendants
+  const targets = [];
+  bottleMeshes.forEach(b => b.traverse(o => { if (o.isMesh) { o.userData.bottleRef = b; targets.push(o); } }));
+  const hits = raycaster.intersectObjects(targets);
+  if (hits.length === 0) return null;
+  return hits[0].object.userData.bottleRef;
+}
+
+function isShrineAtPointer(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  mouseVec.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseVec, camera);
+  const targets = [];
+  fossilGroup.traverse(o => { if (o.isMesh) targets.push(o); });
+  const hits = raycaster.intersectObjects(targets);
+  return hits.length > 0;
+}
+
+function isLanternAtPointer(clientX, clientY) {
+  if (!jellyfishLantern || !jellyfishLantern.visible) return false;
+  const rect = canvas.getBoundingClientRect();
+  mouseVec.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseVec, camera);
+  const targets = [];
+  jellyfishLantern.traverse(o => { if (o.isMesh) targets.push(o); });
+  const hits = raycaster.intersectObjects(targets);
+  return hits.length > 0;
+}
+
+let clickMoved = false;
+canvas.addEventListener('mousedown', e => { clickMoved = false; });
+canvas.addEventListener('mousemove', e => { if (cam.dragging) clickMoved = true; });
+canvas.addEventListener('click', e => {
+  if (clickMoved) return;
+  // Lantern takes priority when in night mode (small target beside shrine)
+  if (isLanternAtPointer(e.clientX, e.clientY)) {
+    drawLanternGuidance();
+    return;
+  }
+  // Shrine next (larger target)
+  if (isShrineAtPointer(e.clientX, e.clientY)) {
+    drawOmikuji();
+    return;
+  }
+  const bottle = getBottleAtPointer(e.clientX, e.clientY);
+  if (bottle) handleBottleClick(bottle);
+});
+canvas.addEventListener('dblclick', async e => {
+  const bottle = getBottleAtPointer(e.clientX, e.clientY);
+  if (bottle) {
+    // dive to that cluster
+    const cluster = bottle.userData.clusterGroup;
+    const target = new THREE.Vector3(cluster.position.x, cluster.position.y + 0.5, cluster.position.z);
+    await animateCameraTo(target, 3, 1.0, cam.theta);
+  } else if (cam.radius < 4) {
+    // zoom back out to default shrine-focused view
+    await animateCameraTo(new THREE.Vector3(2.4, 0.85, 9.2), 4.5, 1.35, 2.27);
+  }
+});
+
+// hover tooltip
+const tooltip = document.getElementById('tooltip');
+canvas.addEventListener('mousemove', e => {
+  if (cam.dragging) { tooltip.classList.remove('show'); return; }
+  // Jellyfish lantern (only visible in night mode)
+  if (isLanternAtPointer(e.clientX, e.clientY)) {
+    tooltip.innerHTML = `
+      <div class="date">Jellyfish Lantern</div>
+      Click to receive tonight's sleep guide.
+      <div class="hint">Whispered from the day's body signals.</div>
+    `;
+    tooltip.style.left = e.clientX + 'px';
+    tooltip.style.top = e.clientY + 'px';
+    tooltip.classList.add('show');
+    canvas.style.cursor = 'pointer';
+    return;
+  }
+  // Shrine first (priority for the large target)
+  if (isShrineAtPointer(e.clientX, e.clientY)) {
+    tooltip.innerHTML = `
+      <div class="date">Hokora · Shrine</div>
+      Click to draw today's omikuji.
+      <div class="hint">One reading per day.</div>
+    `;
+    tooltip.style.left = e.clientX + 'px';
+    tooltip.style.top = e.clientY + 'px';
+    tooltip.classList.add('show');
+    canvas.style.cursor = 'pointer';
+    return;
+  }
+  const bottle = getBottleAtPointer(e.clientX, e.clientY);
+  if (bottle) {
+    const date = bottle.userData.dayDate;
+    const isToday = bottle.userData.isToday;
+    const filled = bottle.userData.filled;
+    tooltip.innerHTML = `
+      <div class="date">${date}${isToday ? ' · Today' : ''}</div>
+      ${filled ? 'A bottle is here.' : (isToday ? 'Click to write today\'s message.' : 'No message.')}
+      <div class="hint">${filled ? 'Click to read · Double-click to dive' : (isToday ? 'Double-click to dive' : '')}</div>
+    `;
+    tooltip.style.left = e.clientX + 'px';
+    tooltip.style.top = e.clientY + 'px';
+    tooltip.classList.add('show');
+    canvas.style.cursor = 'pointer';
+  } else {
+    tooltip.classList.remove('show');
+    canvas.style.cursor = cam.dragging ? 'grabbing' : 'grab';
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// BOTTLE CLICK HANDLING
+// ═══════════════════════════════════════════════════════════════════════
+function handleBottleClick(bottle) {
+  const date = bottle.userData.dayDate;
+  const isToday = bottle.userData.isToday;
+  const existing = bottles[date];
+
+  if (existing) {
+    // Read first. Today's sealed bottle can be re-opened to add new thoughts
+    // via the Edit button in the reader; past bottles stay read-only.
+    openReader(date, existing, { allowEdit: isToday });
+  } else if (isToday) {
+    openWriter(date);
+  } else {
+    // past empty bottle — offer to write retroactively
+    openWriter(date, { retroactive: true });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════════════════════
+const shrineOverlay = document.getElementById('shrine-overlay');
+const writerOverlay = document.getElementById('writer-overlay');
+const readerOverlay = document.getElementById('reader-overlay');
+
+function showModal(overlay) {
+  overlay.classList.add('show');
+  document.body.classList.add('focus-mode');
+}
+function hideModal(overlay) {
+  overlay.classList.remove('show');
+  document.body.classList.remove('focus-mode');
+}
+
+// ═══ shrine omikuji ═══
+const SHRINE_LEVELS = [
+  { score: 90, rank: '大吉', romaji: 'Dai-kichi', color: '#8b2a1f' },
+  { score: 80, rank: '中吉', romaji: 'Chū-kichi', color: '#a04528' },
+  { score: 70, rank: '小吉', romaji: 'Shō-kichi', color: '#b86035' },
+  { score: 60, rank: '吉',   romaji: 'Kichi',     color: '#c87848' },
+  { score: 50, rank: '末吉', romaji: 'Sue-kichi', color: '#8b7a5a' },
+  { score: 35, rank: '凶',   romaji: 'Kyō',       color: '#4a3a3a' },
+  { score: 0,  rank: '大凶', romaji: 'Dai-kyō',   color: '#2a1a1a' }
+];
+
+function computeOmikujiScore(dayData) {
+  if (!dayData) return 65;
+  const r = norm(dayData.readiness || 70, 40, 100) * 100;
+  const s = norm(dayData.sleep || 80, 40, 100) * 100;
+  const h = norm(dayData.hrv || 55, 20, 90) * 100;
+  return r * 0.5 + s * 0.3 + h * 0.2;
+}
+function rankFromScore(score) {
+  for (const lvl of SHRINE_LEVELS) {
+    if (score >= lvl.score) return lvl;
+  }
+  return SHRINE_LEVELS[SHRINE_LEVELS.length-1];
+}
+
+// offline poem fallback
+const FALLBACK_POEMS = {
+  '大吉': [
+    { poem: '晨光入浅礁\n暖流抚珊蕊\n今日宜远行\n深潜亦无忌', interp: 'The current is kind. Go far today — even the deep holds no danger.' },
+    { poem: '潮退见贝壳\n浅沙留脚印\n心海无风波\n此刻皆可行', interp: 'Tide recedes, shells appear. A calm within; anything is possible.' }
+  ],
+  '中吉': [
+    { poem: '微波动珊枝\n鱼群绕礁行\n顺流而前游\n不必问何程', interp: 'A gentle current. Swim with it; ask no destination.' }
+  ],
+  '小吉': [
+    { poem: '潮水缓缓落\n贝壳半埋沙\n今日宜静坐\n听浪不听话', interp: 'Tide falls slow. Sit still today; listen to waves, not words.' }
+  ],
+  '吉': [
+    { poem: '浅礁日常在\n珊枝一寸生\n平淡亦是福\n勿求大风景', interp: 'The reef continues. An inch of growth is enough — no need for grand views.' }
+  ],
+  '末吉': [
+    { poem: '暗流涌礁底\n白化在蔓延\n宜上浮换气\n莫强潜深渊', interp: 'Bleaching creeps beneath. Ascend for air; do not force the depth.' }
+  ],
+  '凶': [
+    { poem: '沉船压珊骨\n水冷月色寒\n今日宜停泊\n来日再扬帆', interp: 'A sunken ship weighs on the coral. Dock today; sail again tomorrow.' }
+  ],
+  '大凶': [
+    { poem: '深海无星月\n珊枝尽折摧\n此刻当回岸\n休养待春归', interp: 'No stars, no moon in the deep. Return to shore; wait for spring.' }
+  ]
+};
+
+async function generateOmikujiPoem(rank, dayData) {
+  // try Anthropic API; fallback to preset
+  try {
+    const prompt = `你是为珊瑚花园写五言绝句签文的AI。今日抽到的签等级是：${rank.rank}（${rank.romaji}）。
+
+身体数据摘要：
+- 睡眠 ${Math.round(dayData.sleep)}/100
+- 心率变异 ${Math.round(dayData.hrv)}ms
+- 静息心率 ${Math.round(dayData.rhr)}bpm
+- 活动 ${Math.round(dayData.activity)}/100
+- 深睡 ${Math.round(dayData.deepSleep)}分钟
+- 体温偏差 ${dayData.bodyTemp >= 0 ? '+' : ''}${dayData.bodyTemp.toFixed(1)}°C
+- 呼吸 ${dayData.respRate.toFixed(1)}次/分
+- 综合准备度 ${Math.round(dayData.readiness)}/100
+
+请严格按格式输出：
+第一行：一首五言绝句（4句，每句5字，第2、4句末字押韵）。意象必须包含深潜、珊瑚、洋流、贝壳、沉船、月色等深海意象之一或多个。
+第二行：空行。
+第三行：一句英文白话（约 15 词内），诗意但直接，作为今日的身心提示。
+
+注意：不要任何其他说明文字，不要标题，不要引号。
+
+示例输出格式：
+晨光入浅礁
+暖流抚珊蕊
+今日宜远行
+深潜亦无忌
+
+The current is kind. Go far today — even the deep holds no danger.`;
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 500,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    if (!response.ok) throw new Error('API error');
+    const data = await response.json();
+    const text = data.content.map(i => i.text || '').join('\n').trim();
+    const parts = text.split(/\n\s*\n/);
+    if (parts.length >= 2) {
+      const poem = parts[0].trim();
+      const interp = parts.slice(1).join('\n').trim();
+      // validate: 4 lines, each with Chinese chars
+      const lines = poem.split('\n').filter(l => l.trim());
+      if (lines.length === 4 && lines.every(l => /[\u4e00-\u9fa5]/.test(l))) {
+        return { poem, interp };
+      }
+    }
+    throw new Error('Malformed response');
+  } catch (e) {
+    console.warn('Poem API failed, using fallback:', e);
+    const bank = FALLBACK_POEMS[rank.rank] || FALLBACK_POEMS['吉'];
+    return bank[Math.floor(Math.random() * bank.length)];
+  }
+}
+
+async function drawOmikuji() {
+  // use YESTERDAY's data (by design: signs read the past body)
+  const today = days[days.length - 1];
+  const yesterday = days[days.length - 2] || today;
+  const targetDate = yesterday.date;
+
+  // dayNum: sequential number in current reef (1-based, oldest = 1)
+  const dayNum = days.findIndex(d => d.date === targetDate) + 1;
+  const totalDays = days.length;
+
+  // signature: a short hash of date+data for the "omikuji ID"
+  const sigSrc = `${targetDate}|${Math.round(yesterday.data.readiness)}|${Math.round(yesterday.data.sleep)}|${Math.round(yesterday.data.hrv)}`;
+  let sigHash = 0;
+  for (let i = 0; i < sigSrc.length; i++) sigHash = (sigHash * 31 + sigSrc.charCodeAt(i)) & 0xffffff;
+  const signature = sigHash.toString(16).toUpperCase().padStart(6, '0');
+
+  // check cache
+  if (omikujiCache[targetDate]) {
+    const cached = omikujiCache[targetDate];
+    displayOmikuji({ ...cached, date: targetDate, dayNum, totalDays, signature });
+    showModal(shrineOverlay);
+    return;
+  }
+
+  // compute
+  const score = computeOmikujiScore(yesterday.data);
+  const rank = rankFromScore(score);
+
+  displayOmikuji({ rank: rank.rank, romaji: rank.romaji, poem: null, interp: null, loading: true, date: targetDate, dayNum, totalDays, signature });
+  showModal(shrineOverlay);
+
+  const { poem, interp } = await generateOmikujiPoem(rank, yesterday.data);
+  const result = { rank: rank.rank, romaji: rank.romaji, poem, interp };
+  omikujiCache[targetDate] = result;
+  await saveOmikuji();
+  displayOmikuji({ ...result, date: targetDate, dayNum, totalDays, signature });
+}
+
+function displayOmikuji(r) {
+  // Rank in black box (just the Chinese e.g. 大吉)
+  document.getElementById('omikuji-rank').textContent = r.rank;
+  // Romaji subtitle beside
+  document.getElementById('omikuji-romaji').textContent = r.romaji;
+
+  // Date column (leftmost)
+  if (r.date) {
+    const d = parseLocalDate(r.date);
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    document.getElementById('omikuji-date').textContent = `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    document.getElementById('omikuji-sig').textContent = r.signature ? `#${r.signature}` : '—';
+    document.getElementById('omikuji-daynum').textContent = r.dayNum ? `Day ${r.dayNum} of ${r.totalDays}` : '—';
+  }
+
+  // Get DOM refs for each poem-line span
+  const line1 = document.getElementById('poem-line-1');
+  const line2 = document.getElementById('poem-line-2');
+  const line3 = document.getElementById('poem-line-3');
+  const line4 = document.getElementById('poem-line-4');
+  const interpEl = document.getElementById('omikuji-interp');
+  const loadingEl = document.getElementById('omikuji-loading');
+
+  if (r.loading) {
+    // Show loading, hide lines
+    [line1, line2, line3, line4].forEach(el => el.textContent = '');
+    interpEl.textContent = '';
+    loadingEl.style.display = 'block';
+  } else {
+    loadingEl.style.display = 'none';
+    // Split poem into 4 lines (五言绝句)
+    const lines = (r.poem || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+    line1.textContent = lines[0] || '';
+    line2.textContent = lines[1] || '';
+    line3.textContent = lines[2] || '';
+    line4.textContent = lines[3] || '';
+    interpEl.textContent = r.interp || '';
+  }
+}
+
+document.getElementById('omikuji-back').addEventListener('click', () => hideModal(shrineOverlay));
+
+// ═══ Rank Guide: sits alongside the omikuji, same rice-paper look ═══
+const rankOverlay = document.getElementById('rank-overlay');
+document.getElementById('rank-guide-btn').addEventListener('click', () => showModal(rankOverlay));
+document.getElementById('rank-close').addEventListener('click', () => hideModal(rankOverlay));
+rankOverlay.addEventListener('click', e => { if (e.target === rankOverlay) hideModal(rankOverlay); });
+
+// ═══ Jellyfish Lantern — tender sleep guide + deep-sea bedtime tale ═══
+const lanternOverlay = document.getElementById('lantern-overlay');
+const lanternCache = {};  // date → { guide, tale }
+
+// Fallback guidance (and a generic bedtime tale) when Claude API is unavailable.
+// Guide text is still data-aware: three variants based on fatigue / fever / calm.
+function lanternFallback(data) {
+  const tired = (data.sleep < 70) || (data.readiness < 65);
+  const warm = (data.bodyTemp > 0.3);
+
+  let guide;
+  if (tired) {
+    guide = "Your body moves like a reef at low tide tonight — a little drained, a little quiet. Dim every bright light, leave one warm lamp burning. Breathe in for four, hold for two, breathe out for six, three times slow. Let thought settle like a sea star drifting down to the sand.";
+  } else if (warm) {
+    guide = "A small warmth lingers in you tonight — the body's fire coral, still glowing. Cool the room by a degree and sip something room-temperature. Lie on your back, one hand on your belly, and follow the rise and fall for a while. The heat will drift back into the deep on its own.";
+  } else {
+    guide = "Your body feels quietly balanced tonight, like a windless stretch of sea at midnight. Close the glowing screens and light a single soft lamp. Three slow breaths are enough to tell the day it can stop now. The coral is going to sleep — let yourself go with it.";
+  }
+
+  const tales = [
+    "A young clownfish could not sleep. An old sea turtle glided past and whispered, 'Watch the anemone breathe.' The fish watched the soft arms open, close, open, close — slow as moonlight on water. By the third opening, the fish had forgotten why it was afraid. It tucked itself into the folds, and the tide hummed it down into dream.",
+    "Once, a tiny octopus collected lost things from the reef: a broken shell, a scrap of net, one brass button from a sunken boat. Each night she arranged them in a ring on the sand. 'Why?' asked a passing eel. 'So the things that are gone,' she said, 'know they have somewhere to come home to.' Then she folded her arms beneath her and slept inside the ring.",
+    "Far below the surface, in the hush where no light reaches, a single jellyfish blooms with a small inner glow. It does not know why. It drifts. It pulses. It lights a few inches of the dark — enough for a shrimp to find its way, enough for a sleeping fish to dream of moonrise. You can borrow its light, too. Just for tonight.",
+  ];
+
+  return {
+    guide,
+    tale: tales[Math.floor(Math.random() * tales.length)],
+  };
+}
+
+async function generateLanternGuidance(dayData) {
+  try {
+    const prompt = `You are the voice of a small jellyfish lantern in a deep-sea coral garden. Based on last night's body data, write two pieces of tonight's whisper: a gentle sleep guide AND a short deep-sea bedtime tale.
+
+Body data (most recent complete day):
+- Sleep score: ${Math.round(dayData.sleep)}/100
+- HRV: ${Math.round(dayData.hrv)} ms
+- Resting heart rate: ${Math.round(dayData.rhr)} bpm
+- Activity: ${Math.round(dayData.activity)}/100
+- Deep sleep: ${Math.round(dayData.deepSleep)} min
+- Body temperature deviation: ${dayData.bodyTemp >= 0 ? '+' : ''}${dayData.bodyTemp.toFixed(1)}°C
+- Respiratory rate: ${dayData.respRate.toFixed(1)}/min
+- Overall readiness: ${Math.round(dayData.readiness)}/100
+
+GUIDE requirements:
+- English, 90–130 words, 4–5 sentences
+- Tender, poetic tone — as if a lantern is whispering to someone about to sleep
+- Reflect the actual state of the body data (tired / balanced / slightly fevered / racing heart / etc.)
+- Offer soft, concrete suggestions: breath pacing, a pre-sleep ritual, body posture, mental ease
+- Use deep-sea imagery sparingly (reef, tide, sea star, coral, current) as metaphor
+- No medical language, no imperative commands, no list markers, no headings
+
+TALE requirements:
+- English, 80–120 words, one small vignette (not a life story)
+- Deep-sea setting: jellyfish, octopus, turtle, anemone, whale, sunken ship, bioluminescence, kelp forest…
+- Soothing, lullaby cadence — ends with a character settling into rest, or a moment of quiet
+- Third-person or observer voice; no dialogue heavier than one or two short lines
+- No violence, no dramatic tension — just a small gentle image to carry into sleep
+
+Return STRICT JSON with no other text and no markdown:
+{ "guide": "...", "tale": "..." }`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 700,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    const text = data.content.map(i => i.text || '').join('').trim();
+    // Extract JSON — model sometimes wraps with markdown
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('no json');
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.guide || !parsed.tale) throw new Error('bad shape');
+    return parsed;
+  } catch (err) {
+    console.warn('[lantern] Claude unreachable, using fallback:', err);
+    return lanternFallback(dayData);
+  }
+}
+
+async function drawLanternGuidance() {
+  // Base on the most recent complete day (yesterday in Oura mode, today in mock)
+  const viewDay = dataSource === 'oura'
+    ? (latestCompleteDay(days) || days[days.length - 1])
+    : days[days.length - 1];
+  if (!viewDay) return;
+  const key = viewDay.date;
+
+  const loadingEl = document.getElementById('lantern-loading');
+  const guideEl = document.getElementById('lantern-guide');
+  const taleEl = document.getElementById('lantern-tale');
+  const guideSection = document.getElementById('lantern-guide-section');
+  const taleSection = document.getElementById('lantern-tale-section');
+
+  // Serve from cache if available
+  if (lanternCache[key]) {
+    guideEl.textContent = lanternCache[key].guide;
+    taleEl.textContent = lanternCache[key].tale;
+    loadingEl.style.display = 'none';
+    guideSection.style.display = '';
+    taleSection.style.display = '';
+    showModal(lanternOverlay);
+    return;
+  }
+
+  guideEl.textContent = '';
+  taleEl.textContent = '';
+  loadingEl.style.display = 'block';
+  guideSection.style.display = 'none';
+  taleSection.style.display = 'none';
+  showModal(lanternOverlay);
+
+  const result = await generateLanternGuidance(viewDay.data);
+  lanternCache[key] = result;
+  loadingEl.style.display = 'none';
+  guideEl.textContent = result.guide;
+  taleEl.textContent = result.tale;
+  guideSection.style.display = '';
+  taleSection.style.display = '';
+}
+
+document.getElementById('lantern-close').addEventListener('click', () => hideModal(lanternOverlay));
+lanternOverlay.addEventListener('click', e => { if (e.target === lanternOverlay) hideModal(lanternOverlay); });
+
+// ═══ bottle writer ═══
+let writerState = { date: null, retroactive: false, editing: false };
+function openWriter(date, { retroactive = false, initialText = '', editing = false } = {}) {
+  writerState.date = date;
+  writerState.retroactive = retroactive;
+  writerState.editing = editing;
+  const ta = document.getElementById('bottle-text');
+  ta.value = initialText;
+  const countEl = document.getElementById('bottle-count');
+  countEl.textContent = String(initialText.length);
+  countEl.classList.toggle('over', initialText.length > 240);
+  let suffix = ' · Today';
+  if (editing) suffix = ' · Edit';
+  else if (retroactive) suffix = ' · Retroactive';
+  document.getElementById('writer-date').textContent = `${date}${suffix}`;
+  // Update the primary action label so "Seal the bottle" reflects intent
+  document.getElementById('writer-save').textContent =
+    editing ? 'Reseal the bottle' : 'Seal the bottle';
+  showModal(writerOverlay);
+  setTimeout(() => {
+    ta.focus();
+    // place cursor at the end when prefilled so user can continue writing
+    ta.selectionStart = ta.selectionEnd = ta.value.length;
+  }, 400);
+}
+document.getElementById('bottle-text').addEventListener('input', e => {
+  const n = e.target.value.length;
+  const cel = document.getElementById('bottle-count');
+  cel.textContent = n;
+  cel.classList.toggle('over', n > 240);
+});
+document.getElementById('writer-cancel').addEventListener('click', () => hideModal(writerOverlay));
+document.getElementById('writer-save').addEventListener('click', async () => {
+  const text = document.getElementById('bottle-text').value.trim();
+  if (!text) return;
+  const date = writerState.date;
+  const day = days.find(d => d.date === date);
+  const resonance = await computeResonance(text, day?.data);
+  const prior = bottles[date];
+  bottles[date] = {
+    text,
+    createdAt: prior?.createdAt ?? Date.now(),
+    updatedAt: prior ? Date.now() : undefined,
+    resonance,
+  };
+  await saveBottles();
+  hideModal(writerOverlay);
+  buildGarden();
+  updateBottleHint();
+});
+
+// resonance analysis
+async function computeResonance(text, dayData) {
+  if (!dayData) return 'neutral';
+  const bodyScore = computeOmikujiScore(dayData); // 0-100
+  try {
+    const prompt = `Analyze the emotional tone of this personal daily journal entry. Return ONLY a single number between -1 (very negative/heavy) and +1 (very positive/light). No other text.
+
+Entry: "${text}"`;
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 20,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+    if (!res.ok) throw new Error('api err');
+    const data = await res.json();
+    const raw = data.content.map(i => i.text || '').join('').trim();
+    const wordScore = parseFloat(raw);
+    if (isNaN(wordScore)) throw new Error('parse err');
+    // wordScore: -1..+1 → 0..100
+    const wordScoreN = (wordScore + 1) * 50;
+    const diff = bodyScore - wordScoreN;
+    if (diff > 20) return 'body_stronger';  // body happy, words heavy
+    if (diff < -20) return 'words_stronger'; // body tired, words hopeful
+    return 'neutral';
+  } catch (e) {
+    return 'neutral';
+  }
+}
+
+// ═══ bottle reader ═══
+let readerState = { date: null, data: null };
+function openReader(date, bottleData, { allowEdit = false } = {}) {
+  readerState.date = date;
+  readerState.data = bottleData;
+  document.getElementById('reader-date').textContent = date;
+  const dateObj = parseLocalDate(date);
+  const weekday = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dateObj.getDay()];
+  const timeStr = new Date(bottleData.createdAt).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const subtitle = bottleData.updatedAt
+    ? `${weekday} · sealed ${timeStr} · last edited ${new Date(bottleData.updatedAt).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+    : `${weekday} · ${timeStr}`;
+  document.getElementById('reader-subtitle').textContent = subtitle;
+  document.getElementById('reader-body').textContent = bottleData.text;
+
+  // resonance display
+  const resonanceEl = document.getElementById('reader-resonance');
+  if (bottleData.resonance === 'body_stronger') {
+    resonanceEl.innerHTML = `<span class="tag">Resonance</span>The body was bright that day, but the words feel heavier. A quiet dissonance — worth revisiting.`;
+    resonanceEl.style.display = 'block';
+  } else if (bottleData.resonance === 'words_stronger') {
+    resonanceEl.innerHTML = `<span class="tag">Resonance</span>The body was tired, but the words carry lightness. The reef remembers strength beyond its signals.`;
+    resonanceEl.style.display = 'block';
+  } else {
+    resonanceEl.style.display = 'none';
+  }
+
+  // Past bottles stay read-only (letter the body already sealed); today's
+  // bottle exposes the Edit button so you can add new thoughts from the day.
+  const readerEl = document.querySelector('.bottle-reader');
+  readerEl.classList.toggle('locked', !allowEdit);
+  showModal(readerOverlay);
+}
+document.getElementById('reader-close').addEventListener('click', () => hideModal(readerOverlay));
+document.getElementById('reader-edit').addEventListener('click', () => {
+  const { date, data } = readerState;
+  if (!date || !data) return;
+  hideModal(readerOverlay);
+  // brief delay so the reader fade-out doesn't fight the writer fade-in
+  setTimeout(() => {
+    openWriter(date, {
+      editing: true,
+      initialText: data.text + '\n\n',  // blank line to keep adding onto
+    });
+  }, 200);
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// UI PANEL UPDATES
+// ═══════════════════════════════════════════════════════════════════════
+function updateMetricsPanel() {
+  // In Oura mode, always show YESTERDAY'S entry (days[len-2]) — that's the
+  // sign's frame of reference. If Oura hasn't synced yesterday yet, the
+  // entry will be mock-fill and the source indicator flags this so the user
+  // knows to click REFRESH FROM OURA.
+  // In mock mode, show today.
+  let viewDay;
+  if (dataSource === 'oura') {
+    viewDay = days[days.length - 2] || days[days.length - 1];
+  } else {
+    viewDay = days[days.length - 1];
+  }
+  const isToday = viewDay.date === todayISO;
+  document.getElementById('bio-date-label').textContent = isToday ? 'Today' : 'Yesterday';
+  document.getElementById('bio-date').textContent = viewDay.date;
+
+  // Source indicator — distinguishes real Oura data, mock-fill (sync lag),
+  // and full mock mode. If the viewed day is mock-fill, flag it visibly.
+  const srcEl = document.getElementById('bio-source');
+  srcEl.classList.remove('live', 'error');
+  if (dataSource === 'oura') {
+    if (viewDay.source === 'oura') {
+      const lastSync = getLastSyncTime();
+      if (hasAutoConfig() && lastSync > 0) {
+        const t = new Date(lastSync);
+        const hh = String(t.getHours()).padStart(2, '0');
+        const mm = String(t.getMinutes()).padStart(2, '0');
+        srcEl.textContent = `auto-synced · ${hh}:${mm}`;
+      } else {
+        srcEl.textContent = 'via oura ring · live data';
+      }
+      srcEl.classList.add('live');
+    } else {
+      // Mock-fill — yesterday's session hasn't synced yet
+      srcEl.textContent = 'yesterday not yet synced · click refresh';
+      srcEl.classList.add('error');
+    }
+  } else {
+    srcEl.textContent = 'mock reading';
+  }
+
+  // Oura button reflects connection state
+  const ouraBtn = document.getElementById('oura-btn');
+  if (ouraBtn) {
+    if (hasAutoConfig()) {
+      // Local config path — auto-sync handles daily refresh; click forces now
+      const lastSync = getLastSyncTime();
+      if (lastSync > 0) {
+        const t = new Date(lastSync);
+        const hh = String(t.getHours()).padStart(2, '0');
+        const mm = String(t.getMinutes()).padStart(2, '0');
+        ouraBtn.textContent = `◈ AUTO · LAST ${hh}:${mm}`;
+      } else {
+        ouraBtn.textContent = `◈ AUTO · ${getAutoSyncHour()}:00 DAILY`;
+      }
+    } else if (hasOuraToken()) {
+      ouraBtn.textContent = '◈ REFRESH FROM OURA';
+    } else {
+      ouraBtn.textContent = '◈ CONNECT OURA';
+    }
+  }
+
+  const wrap = document.getElementById('metrics');
+  wrap.innerHTML = METRICS.map(m => {
+    const v = viewDay.data[m.key];
+    let display = '—';
+    if (v == null || Number.isNaN(v)) {
+      display = '—';
+    } else if (m.key === 'rhr') display = Math.round(v) + ' bpm';
+    else if (m.key === 'hrv') display = Math.round(v) + ' ms';
+    else if (m.key === 'bodyTemp') display = (v >= 0 ? '+' : '') + v.toFixed(1) + '°';
+    else if (m.key === 'deepSleep') display = Math.round(v) + ' min';
+    else if (m.key === 'respRate') display = v.toFixed(1) + '/min';
+    else display = Math.round(v);
+    return `
+      <div class="metric-row">
+        <div class="name">${m.en}<span class="lat">${m.latin}</span></div>
+        <div class="val">${display}</div>
+      </div>`;
+  }).join('');
+}
+
+// updateBottleHint used to drive the bottom-left hint panel, which has been
+// folded into the Interaction Guide modal. Kept as a no-op so the existing
+// call sites don't need to be touched — future re-introduction of a small
+// sealed-bottle indicator can reuse this hook.
+function updateBottleHint() { /* no-op */ }
+
+function updateViewDate() {
+  document.getElementById('view-date').textContent = todayISO;
+}
+
+// ═══ Oura Ring: connect / refresh flow ═══
+const ouraOverlay   = document.getElementById('oura-overlay');
+const ouraInput     = document.getElementById('oura-token-input');
+const ouraError     = document.getElementById('oura-error');
+const ouraProgress  = document.getElementById('oura-progress');
+const ouraSaveBtn   = document.getElementById('oura-save');
+const ouraCancelBtn = document.getElementById('oura-cancel');
+
+function openOuraModal() {
+  ouraError.style.display = 'none';
+  ouraError.textContent = '';
+  ouraProgress.style.display = 'none';
+  ouraSaveBtn.disabled = false;
+  ouraInput.value = '';
+  showModal(ouraOverlay);
+  setTimeout(() => ouraInput.focus(), 300);
+}
+
+async function runOuraFetch() {
+  ouraError.style.display = 'none';
+  ouraProgress.style.display = 'block';
+  ouraProgress.textContent = 'Fetching last 30 days…';
+  ouraSaveBtn.disabled = true;
+  try {
+    const ouraDays = await fetchOuraDays(30);
+    if (!ouraDays.length) {
+      throw new Error('No days returned (Oura had no sleep sessions in this window).');
+    }
+    days = mergeOuraWithMockFill(ouraDays, 30);
+    dataSource = 'oura';
+    await saveDays();
+    markSyncTime();
+    omikujiCache = {};  // invalidate — new data means new signatures
+    await saveOmikuji();
+    buildGarden();
+    updateMetricsPanel();
+    updateBottleHint();
+    hideModal(ouraOverlay);
+  } catch (err) {
+    console.error('Oura fetch failed:', err);
+    ouraError.textContent = err.message || String(err);
+    ouraError.style.display = 'block';
+    ouraProgress.style.display = 'none';
+    ouraSaveBtn.disabled = false;
+  }
+}
+
+document.getElementById('oura-btn').addEventListener('click', async () => {
+  if (hasOuraToken()) {
+    // Refresh directly with the stored token (no modal needed).
+    // Works for both auto-config path and localStorage-token path.
+    const srcEl = document.getElementById('bio-source');
+    srcEl.textContent = 'fetching…';
+    srcEl.classList.remove('live', 'error');
+    try {
+      const ouraDays = await fetchOuraDays(30);
+      if (!ouraDays.length) throw new Error('No days from Oura.');
+      days = mergeOuraWithMockFill(ouraDays, 30);
+      dataSource = 'oura';
+      await saveDays();
+      markSyncTime();
+      omikujiCache = {};
+      await saveOmikuji();
+      buildGarden();
+      updateMetricsPanel();
+      updateBottleHint();
+    } catch (err) {
+      console.error('Oura refresh failed:', err);
+      srcEl.classList.add('error');
+      const tokenBad = err.message?.includes('401') || err.message?.includes('rejected');
+      if (tokenBad && hasAutoConfig()) {
+        // Auto-config PAT is wrong — can't fix with the UI. Tell user where.
+        srcEl.textContent = 'oura token invalid — edit ouraConfig.local.js';
+      } else if (tokenBad) {
+        // localStorage-path token — clear and reopen modal
+        clearOuraToken();
+        srcEl.textContent = 'oura token rejected — reconnect';
+        openOuraModal();
+      } else {
+        srcEl.textContent = 'oura refresh failed — check console';
+      }
+    }
+  } else {
+    openOuraModal();
+  }
+});
+
+ouraCancelBtn.addEventListener('click', () => hideModal(ouraOverlay));
+ouraSaveBtn.addEventListener('click', async () => {
+  const token = ouraInput.value.trim();
+  if (!token) {
+    ouraError.textContent = 'Please paste a Personal Access Token.';
+    ouraError.style.display = 'block';
+    return;
+  }
+  setOuraToken(token);
+  await runOuraFetch();
+});
+// Enter key submits
+ouraInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') ouraSaveBtn.click();
+});
+
+// ═══ Info modals: Interaction Guide + Coral Mapping ═══
+const interactionOverlay = document.getElementById('interaction-overlay');
+const mappingOverlay     = document.getElementById('mapping-overlay');
+document.getElementById('interaction-guide-btn').addEventListener('click', () => showModal(interactionOverlay));
+document.getElementById('interaction-close').addEventListener('click', () => hideModal(interactionOverlay));
+document.getElementById('coral-mapping-btn').addEventListener('click', () => showModal(mappingOverlay));
+document.getElementById('mapping-close').addEventListener('click', () => hideModal(mappingOverlay));
+// Click backdrop to close
+interactionOverlay.addEventListener('click', e => { if (e.target === interactionOverlay) hideModal(interactionOverlay); });
+mappingOverlay.addEventListener('click', e => { if (e.target === mappingOverlay) hideModal(mappingOverlay); });
+
+updateMetricsPanel();
+updateBottleHint();
+updateViewDate();
+
+// Debug hook — lets Console access module-scoped state. Safe to ship; the
+// `window.__garden` namespace is only here for diagnostics.
+window.__garden = {
+  get days()        { return days; },
+  get todayISO()    { return todayISO; },
+  get dataSource()  { return dataSource; },
+  summary() {
+    console.table(days.slice(-5).map(d => ({
+      date: d.date, source: d.source,
+      sleep: Math.round(d.data.sleep),
+      rhr: Math.round(d.data.rhr),
+      hrv: Math.round(d.data.hrv),
+    })));
+    console.log('todayISO:', todayISO);
+    const ls = Number(localStorage.getItem('garden:last-sync')) || 0;
+    console.log('last sync:', ls ? new Date(ls).toLocaleString() : '(never)');
+    console.log('dataSource:', dataSource);
+  },
+  // Direct Oura API peek — tells you which dates each endpoint actually
+  // returned, so you can distinguish "Oura has no data for 4/21" from
+  // "we merged the data wrong".
+  inspectOura: inspectOuraRaw,
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = clock.getDelta();
+
+  // keyboard-driven camera panning
+  tickKeyboardPan();
+
+  // particles drift upward
+  const pp = particleGeo.attributes.position;
+  for (let i = 0; i < particleCount; i++) {
+    pp.array[i*3]   += particleSpd[i*3];
+    pp.array[i*3+1] += particleSpd[i*3+1];
+    pp.array[i*3+2] += particleSpd[i*3+2];
+    if (pp.array[i*3+1] > 8) {
+      pp.array[i*3]   = (Math.random() - 0.5) * 25;
+      pp.array[i*3+1] = 0;
+      pp.array[i*3+2] = (Math.random() - 0.5) * 25;
+    }
+  }
+  pp.needsUpdate = true;
+
+  // ═══ Fish schools: leader-follower with stable formation
+  const _fishDummy = new THREE.Object3D();
+  fishSchools.forEach(school => {
+    const { mesh, state, species, schoolsData } = school;
+
+    // Step 1: update each school's leader (center) — moves along leadDir at school speed
+    const schoolSpeed = species.speed * 0.018;
+    schoolsData.forEach((sd, si) => {
+      // slow random walk on direction
+      sd.leadDir += (Math.random() - 0.5) * 0.012;
+      // bounds: if center drifts out of river area, turn back toward center
+      if (Math.abs(sd.centerX) > 5 || sd.centerZ < -19 || sd.centerZ > 7) {
+        const targetAngle = Math.atan2(-sd.centerZ * 0.15, -sd.centerX);
+        // blend toward target angle
+        const delta = ((targetAngle - sd.leadDir + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        sd.leadDir += delta * 0.04;
+      }
+      // advance the school center
+      sd.centerX += Math.cos(sd.leadDir) * schoolSpeed;
+      sd.centerZ += Math.sin(sd.leadDir) * schoolSpeed;
+      // center Y drifts very slowly
+      sd.centerY += Math.sin(t * 0.3 + si) * 0.002;
+      sd.centerY = Math.max(0.9, Math.min(2.8, sd.centerY));
+    });
+
+    // Step 2: each fish targets school center + its formation offset (transformed into world frame)
+    state.forEach((f, i) => {
+      const sd = schoolsData[f.schoolIdx];
+      // Transform formation offset from school-local (forward/side/up) to world (x/y/z)
+      const cos = Math.cos(sd.leadDir);
+      const sin = Math.sin(sd.leadDir);
+      const targetX = sd.centerX + f.formFwd * cos - f.formSide * sin;
+      const targetZ = sd.centerZ + f.formFwd * sin + f.formSide * cos;
+      const targetY = sd.centerY + f.formUp;
+
+      // Tighter spring toward target position — fish stay close to formation
+      const springStrength = 0.05;
+      f.x += (targetX - f.x) * springStrength;
+      f.y += (targetY - f.y) * springStrength;
+      f.z += (targetZ - f.z) * springStrength;
+
+      // Separation: check a few nearest neighbors and push away if too close
+      let sepX = 0, sepZ = 0;
+      let checked = 0;
+      for (let j = i + 1; j < state.length && checked < 4; j++) {
+        const g = state[j];
+        if (g.schoolIdx !== f.schoolIdx) continue;
+        checked++;
+        const dx = f.x - g.x, dz = f.z - g.z;
+        const d2 = dx*dx + dz*dz;
+        if (d2 < 0.09 && d2 > 0.0001) {
+          const d = Math.sqrt(d2);
+          const push = (0.3 - d) / 0.3;
+          sepX += (dx / d) * push;
+          sepZ += (dz / d) * push;
+        }
+      }
+      f.x += sepX * 0.012;
+      f.z += sepZ * 0.012;
+
+      // Direction: face the direction of motion (spring target)
+      const dx = targetX - f.x;
+      const dz = targetZ - f.z;
+      if (dx*dx + dz*dz > 0.001) {
+        const newAngle = Math.atan2(dz, dx);
+        // smooth angle lerp
+        const delta = ((newAngle - f.dirAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        f.dirAngle += delta * 0.08;
+      }
+
+      // Small vertical bob
+      const bobY = Math.sin(t * 2 + f.phase) * 0.04;
+
+      _fishDummy.position.set(f.x, f.y + bobY, f.z);
+      _fishDummy.rotation.y = -f.dirAngle + Math.PI / 2;
+      _fishDummy.rotation.z = Math.sin(t * 2.5 + f.phase) * 0.1;
+      _fishDummy.scale.setScalar(f.scale);
+      _fishDummy.updateMatrix();
+      mesh.setMatrixAt(i, _fishDummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
+  // ═══ God rays: very subtle opacity pulse, minimal sway
+  godRays.forEach((ray, i) => {
+    const pulse = 0.9 + Math.sin(t * 0.25 + ray.userData.phase) * 0.1;
+    ray.material.opacity = ray.userData.baseOpacity * pulse;
+    ray.rotation.z = Math.sin(t * 0.2 + ray.userData.phase) * 0.02;
+  });
+
+  // bottle animations: subtle water-sway for lying bottles
+  clusters.forEach(cluster => {
+    const b = cluster.userData.bottle;
+    if (!b) return;
+    // very subtle rocking (as if current nudges the bottle)
+    const sway = Math.sin(t * 0.6 + cluster.position.x * 1.5) * 0.03;
+    b.rotation.z = b.userData.baseRotZ + sway;
+    b.rotation.y = b.userData.baseRotY + Math.sin(t * 0.4 + cluster.position.z) * 0.05;
+    // today's empty bottle: gentle "breathing" glow + slight scale pulse
+    if (b.userData.isToday && !b.userData.filled) {
+      b.scale.setScalar(0.8 + Math.sin(t * 1.8) * 0.04);
+      // keep same position (don't make it float — just breathe in place)
+    } else {
+      b.scale.setScalar(0.8);
+    }
+  });
+
+  // algae tuft sway
+  clusters.forEach(cluster => {
+    cluster.traverse(o => {
+      if (o.userData?.type === 'algae') {
+        o.children.forEach(blade => {
+          if (blade.userData.baseRotX !== undefined) {
+            blade.rotation.x = blade.userData.baseRotX + Math.sin(t * 0.7 + blade.userData.swayPhase) * 0.15;
+          }
+        });
+      }
+    });
+  });
+
+  // xenia pulsing — whole-model scale oscillation at RHR/60 Hz.
+  // GLB models don't expose polyp/arm children, so we pulse the entire
+  // coral instead; visually reads as a breathing/contracting motion.
+  // Slowed to 1/3 actual heart rate for visual calm.
+  clusters.forEach(cluster => {
+    const pulsers = cluster.userData.pulsatingCorals;
+    if (!pulsers) return;
+    pulsers.forEach(xenia => {
+      const hz = (xenia.userData.pulseHz || 1.0) / 3; // 1/3 visual calm
+      if (!xenia.userData._baseScale) {
+        xenia.userData._baseScale = xenia.scale.x; // all axes equal after multiplyScalar
+      }
+      const base = xenia.userData._baseScale;
+      const pulse = Math.sin(t * hz * Math.PI * 2); // -1..+1
+      const amp = 0.06; // ±6% scale swell
+      xenia.scale.setScalar(base * (1 + pulse * amp));
+    });
+  });
+
+  // Soft-coral sway — only Gorgonia and Xenia drift with the current.
+  // Hard corals (Favia/Acropora/Fungia/Millepora/Pocillopora) have calcified
+  // skeletons and stay still; moving them would be biologically wrong.
+  // Two-axis sway with decorrelated x and z frequencies (×1.37) makes the
+  // motion read as water flow rather than a pendulum.
+  clusters.forEach(cluster => {
+    const swayers = cluster.userData.swayingCorals;
+    if (!swayers) return;
+    swayers.forEach(coral => {
+      const amp   = coral.userData.swayAmp;
+      const freq  = coral.userData.swayFreq;
+      const phase = coral.userData.swayPhase;
+      if (coral.userData._swayBaseX === undefined) {
+        coral.userData._swayBaseX = coral.rotation.x;
+        coral.userData._swayBaseZ = coral.rotation.z;
+      }
+      const tt = t * freq * Math.PI * 2 + phase;
+      coral.rotation.x = coral.userData._swayBaseX + Math.sin(tt)         * amp;
+      coral.rotation.z = coral.userData._swayBaseZ + Math.cos(tt * 1.37) * amp * 1.2;
+    });
+  });
+
+  // subtle fossil glow pulse
+  const fossilLight = fossilGroup.children.find(c => c.isPointLight);
+  if (fossilLight) {
+    fossilLight.intensity = 0.4 + Math.sin(t * 0.8) * 0.15;
+  }
+
+  // Jellyfish lantern — breathing core, twinkling bioluminescent specks,
+  // tentacle bead chains swaying in the current, whole body gently bobbing.
+  if (jellyfishLantern && jellyfishLantern.visible) {
+    // Cache the base Y once so the bob is relative to the initial sand-level drop
+    if (jellyfishLantern.userData._baseY === undefined) {
+      jellyfishLantern.userData._baseY = jellyfishLantern.position.y;
+    }
+    const baseY = jellyfishLantern.userData._baseY;
+    jellyfishLantern.position.y = baseY + Math.sin(t * 0.45) * 0.03;
+
+    // Warm inner core breathes
+    const breath = Math.sin(t * 0.9) * 0.5 + 0.5; // 0..1
+    if (jellyfishLantern.userData.innerLight) {
+      jellyfishLantern.userData.innerLight.intensity = 1.4 + breath * 0.8;
+    }
+    if (jellyfishLantern.userData.coreMesh?.material) {
+      jellyfishLantern.userData.coreMesh.material.emissiveIntensity = 1.6 + breath * 0.9;
+    }
+
+    // Interior specks twinkle independently — each has its own material
+    const specks = jellyfishLantern.userData.specks;
+    if (specks) {
+      for (const sp of specks) {
+        const op = 0.25 + Math.abs(Math.sin(t * sp.userData.baseSpeed + sp.userData.basePhase)) * 0.75;
+        sp.material.opacity = op;
+      }
+    }
+
+    // Tentacle bead chains — each bead laid out along the tentacle length,
+    // drifting toward the tip like hair in gentle water flow
+    const tentacles = jellyfishLantern.userData.tentacles;
+    if (tentacles) {
+      for (const tg of tentacles) {
+        const { phase, angle, startX, startZ, startY, tentLen, beads } = tg.userData;
+        const sway  = Math.sin(t * 0.55 + phase);
+        const sway2 = Math.cos(t * 0.75 + phase * 1.3);
+        for (const bead of beads) {
+          const bt = bead.userData.t;
+          const y = startY - bt * tentLen + Math.sin(t * 0.8 + phase + bt * 3) * bt * 0.015;
+          // radial drift increases toward the tip, perpendicular wiggle gives curl
+          const radialDrift = sway * tentLen * 0.18 * bt;
+          const perpDrift   = sway2 * tentLen * 0.10 * bt;
+          const rx = Math.cos(angle), rz = Math.sin(angle);
+          const px = -Math.sin(angle), pz = Math.cos(angle);
+          bead.position.set(
+            startX + rx * radialDrift + px * perpDrift,
+            y,
+            startZ + rz * radialDrift + pz * perpDrift,
+          );
+        }
+      }
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+function updateTimeDisplay(phase, hour) {
+  const now = new Date();
+  document.getElementById('current-time').textContent =
+    now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  document.getElementById('time-phase').textContent = phase;
+}
+
+// initial time update
+{
+  const { phase, hour } = updateLightByTime();
+  updateTimeDisplay(phase, hour);
+}
+
+// clock ticks UI every minute
+setInterval(() => {
+  const { phase, hour } = updateLightByTime();
+  updateTimeDisplay(phase, hour);
+}, 60000);
+
+// Night mode toggle — flips demoNightMode, re-runs lighting, updates label.
+// Also toggles the jellyfish lantern visibility (see lantern code below).
+const nightModeBtn = document.getElementById('night-mode-btn');
+nightModeBtn.addEventListener('click', () => {
+  demoNightMode = !demoNightMode;
+  nightModeBtn.textContent = demoNightMode ? '☀ DAY MODE' : '☾ NIGHT MODE';
+  nightModeBtn.classList.toggle('active', demoNightMode);
+  const { phase, hour } = updateLightByTime();
+  updateTimeDisplay(phase, hour);
+  // Lantern appears only at night
+  if (typeof jellyfishLantern !== 'undefined' && jellyfishLantern) {
+    jellyfishLantern.visible = demoNightMode;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// CINEMATIC INTRO (first visit of the day)
+// ═══════════════════════════════════════════════════════════════════════
+async function cinematicIntro() {
+  // Start very close, straight on, looking up at shrine's face
+  cam.target.set(2.4, 0.8, 9.2);
+  cam.radius = 2.8;
+  cam.phi = 1.42;                 // very low angle, looking up
+  cam.theta = 2.27;                // facing shrine's front
+  updateCameraFromOrbit();
+  await new Promise(r => setTimeout(r, 300));
+
+  // Slowly ease back while keeping shrine front-and-center
+  await animateCameraTo(new THREE.Vector3(2.4, 0.85, 9.2), 3.5, 1.38, 2.27, 2400);
+
+  // Final: pull back to standard distance, still on shrine's front
+  await animateCameraTo(new THREE.Vector3(2.4, 0.85, 9.2), 4.5, 1.35, 2.27, 2800);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════════════════════════════
+animate();
+
+// handle window resize
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// hide loading screen after short delay to let scene settle
+setTimeout(async () => {
+  document.getElementById('loading').classList.add('hide');
+  if (sessionState.firstOpenToday) {
+    await cinematicIntro();
+  }
+  await markSessionOpened();
+}, 1200);
+
+</script>
+</body>
+</html>
