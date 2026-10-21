@@ -828,6 +828,11 @@ gitignored 的 `ouraConfig.local.js`，线上会 404 导致整个模块加载失
 - `dataSource = 'simulated'`，day.source = `'oura-sim'`；bio-panel 显示昨天
 - `DATA_VERSION` 变化时清空 omikuji 缓存
 - 改了模拟器参数就 bump `DATA_VERSION`
+- Claude 调用（签诗 / 灯笼 / 共振）统一走同源 `POST /api/claude`
+  （`api/claude.js`，Vercel Function），key 在服务器环境变量
+  `ANTHROPIC_API_KEY`；模型默认 `claude-sonnet-5-5`（`CLAUDE_MODEL` 可覆盖，
+  原 `claude-sonnet-4-20250514` 已 deprecated）。本地 `npm run dev` 用
+  `scripts/dev-server.mjs` 模拟 Vercel。回退诗不写缓存，下次再试
 
 ### 生产期 · Oura PAT（本地开发用，线上未启用）
 

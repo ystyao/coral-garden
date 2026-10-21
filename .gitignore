@@ -19,3 +19,7 @@ Thumbs.db
 # well over GitHub's 100MB single-file hard limit.
 assets/*.glb
 !assets/hokora_opt.glb
+
+# Server-side secrets (Anthropic API key) — see .env.example
+.env*.local
+.env
