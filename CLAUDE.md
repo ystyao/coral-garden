@@ -814,7 +814,22 @@ generateMockDays(30)
 deepSleep 各占 15–20%，rhr 反向归一，temp/resp 用"离基线稳定度"而非原始值。
 这个 readiness 字段只是派生，不驱动珊瑚，但 omikuji 评分和 signature hash 用它。
 
-### 生产期 · Oura PAT（已实现）
+### 线上部署期 · Oura 模拟器（当前 index.html 使用）
+
+Vercel 公开部署无法带个人 PAT，所以 index.html **只 import**
+`src/data/ouraSimulator.js`，不再 import `ouraClient.js`（后者依赖
+gitignored 的 `ouraConfig.local.js`，线上会 404 导致整个模块加载失败）。
+
+- `simulateOuraDays(30)`：从固定 epoch（2025-01-01）起做确定性随机游走，
+  每个日期的数值只由日期决定 —— 过去的日子永不改变，签号稳定
+- 模型：潜在 recovery AR(1) 耦合 sleep/deepSleep/HRV/RHR；28 天周期在黄体期
+  抬升体温/RHR/呼吸；偶发生病（发烧、RHR 升、HRV 降，逐日衰减）；活动有周节律
+- 基线按 Lorriane 的个人数据：sleep 78±8、RHR 62±4、HRV ~55
+- `dataSource = 'simulated'`，day.source = `'oura-sim'`；bio-panel 显示昨天
+- `DATA_VERSION` 变化时清空 omikuji 缓存
+- 改了模拟器参数就 bump `DATA_VERSION`
+
+### 生产期 · Oura PAT（本地开发用，线上未启用）
 
 走 `src/data/ouraClient.js`，用户在 UI 里粘一次 PAT 就自动工作：
 

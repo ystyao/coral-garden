@@ -273,10 +273,10 @@ to any number of times before local midnight. The feedback is temporal:
 - **Modern browser**: Chrome 120+, Edge 120+, Firefox 120+, Safari 17+
   (requires WebGL2, CSS `aspect-ratio`, ES module import, `clip-path`,
   `backdrop-filter`)
-- **Optional**: Oura Personal Access Token from
-  [cloud.ouraring.com/personal-access-tokens](https://cloud.ouraring.com/personal-access-tokens)
-  for live biometric data. Without it the garden runs on deterministic
-  mock data.
+- **Biometric data**: the public build reads from a deterministic Oura
+  simulator (`src/data/ouraSimulator.js`) tuned to the author's real
+  baselines — no token needed. The live client (`src/data/ouraClient.js`)
+  is kept in the repo for reference but is not imported by `index.html`.
 - **Optional**: An Anthropic API key embedded in the project (or a proxy)
   if you want live-generated poems / guides / tales. Without it the
   garden falls back to bundled templates.
@@ -291,30 +291,33 @@ cd coral-garden
 # 2. (Optional) Compress the provided GLB models if you don't want to ship
 #    the raw files. They are already pre-compressed in assets/models/.
 #    See the Compression section below.
-
-# 3. (Optional) Configure Oura auto-sync
-cp src/data/ouraConfig.example.js src/data/ouraConfig.local.js
-# Open ouraConfig.local.js and paste your PAT into OURA_PAT.
 ```
 
 ### Running Locally
 
-You need **two terminals** if you're using live Oura data (one for the
-static server, one for the CORS proxy). For mock-only mode, one is enough.
-
 ```bash
-# Terminal 1 — static file server (required)
 npx serve .
 # Serves on http://localhost:3000
-
-# Terminal 2 — Oura CORS proxy (required only if you've set a PAT)
-node scripts/dev-proxy.mjs
-# Listens on http://localhost:3001, forwards /oura/* → api.ouraring.com
 ```
 
 Open **http://localhost:3000** in a modern browser. On first visit the
 garden will spend a few seconds loading the 7 coral GLBs (you'll see
 `growing the reef · 3 / 7 · favia` etc. on the loading screen).
+
+### Deploying to Vercel
+
+The site is fully static — no build step.
+
+1. Push to GitHub, then in Vercel choose **Add New → Project** and import
+   the repository.
+2. Framework preset: **Other**. Leave build command and output directory
+   empty (root is served as-is).
+3. Deploy. `vercel.json` adds a week-long cache header for the GLB models.
+
+Every visitor sees the same simulated Oura series: each date's reading is
+a pure function of that date, so past days never change and omikuji
+signatures stay stable. Poems and guides fall back to the bundled bank
+(no Anthropic key is shipped to the browser).
 
 ### GLB Compression (if you need to re-compress source models)
 
@@ -381,9 +384,9 @@ full 7-species + Hokora load.
 
 ### Bio Panel (top-right)
 
-Shows yesterday's seven biometric readings (or today's, in mock mode).
-Source indicator colour-codes the sync state: **green** for live Oura
-data, **red** for mock-filled gaps, grey for offline mock.
+Shows yesterday's seven biometric readings from the simulated Oura
+reading. `◈ SYNC OURA · SIMULATED` re-reads the simulator (it only
+changes anything after midnight, when a new day enters the reef).
 
 ### Screenshots
 
@@ -504,7 +507,7 @@ plus `src/data/ouraClient.js`; no TypeScript, no bundler, no framework.
 - [ ] Ambient ocean audio (slow, low-volume current sound; toggle-able
   in Interaction Guide)
 - [ ] Save omikuji as image ("album" metaphor, not "share")
-- [ ] Deploy to Vercel / GitHub Pages
+- [x] Deploy to Vercel (simulated Oura data)
 - [ ] Lunar date display option beside the Gregorian date
 - [ ] Bio-panel numbers → micro-visualisations (a tiny heartbeat line for
   RHR, a thin wave for respiration, etc.) so it reads as "sensed data"

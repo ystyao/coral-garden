@@ -1261,32 +1261,12 @@
 <div class="bio-panel">
   <h2><span id="bio-date-label">Today</span> · <span id="bio-date" style="color:rgba(244,237,224,0.7)">—</span></h2>
   <div class="sub">Sediment of the body</div>
-  <div class="bio-source" id="bio-source">mock reading</div>
+  <div class="bio-source live" id="bio-source">simulated oura reading</div>
   <div id="metrics"></div>
   <div class="mock-controls">
-    <button id="oura-btn" class="primary">◈ CONNECT OURA</button>
+    <button id="oura-btn" class="primary">◈ SYNC OURA · SIMULATED</button>
     <button id="interaction-guide-btn">◈ INTERACTION GUIDE</button>
     <button id="coral-mapping-btn">◈ CORAL MAPPING</button>
-  </div>
-</div>
-
-<!-- Oura PAT entry modal -->
-<div class="modal-overlay" id="oura-overlay">
-  <div class="oura-modal">
-    <div class="title">Connect Oura Ring</div>
-    <div class="en">Personal Access Token</div>
-    <div class="prompt">
-      Paste a Personal Access Token from
-      <a href="https://cloud.ouraring.com/personal-access-tokens" target="_blank" rel="noopener">cloud.ouraring.com/personal-access-tokens</a>.
-      Stored only in this browser's localStorage — never transmitted elsewhere.
-    </div>
-    <input type="password" id="oura-token-input" placeholder="OURA_V2_..." autocomplete="off" />
-    <div class="error" id="oura-error" style="display:none"></div>
-    <div class="progress" id="oura-progress" style="display:none">Fetching last 30 days…</div>
-    <div class="actions">
-      <button id="oura-cancel">Cancel</button>
-      <button class="primary" id="oura-save">Fetch last 30 days</button>
-    </div>
   </div>
 </div>
 
@@ -1651,12 +1631,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import {
-  hasOuraToken, setOuraToken, clearOuraToken,
-  fetchOuraDays, latestCompleteDay,
-  hasAutoConfig, shouldAutoSync, getLastSyncTime, markSyncTime,
-  getAutoSyncHour, inspectOuraRaw,
-} from './src/data/ouraClient.js';
+// Public deployment reads from a deterministic Oura simulator instead of the
+// live API (src/data/ouraClient.js needs a personal token that can't ship).
+import { simulateOuraDays } from './src/data/ouraSimulator.js';
 
 // ═══════════════════════════════════════════════════════════════════════
 // METRIC DEFINITIONS — the 7 fixed coral species per day (CLAUDE.md §7 Body Metrics)
@@ -1697,32 +1674,6 @@ function deriveReadiness(data) {
   return Math.round(weighted * 100);
 }
 
-function generateMockDays(N = 30) {
-  const days = [];
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  // generate a somewhat-continuous time series (correlated random walk)
-  let state = {};
-  METRICS.forEach(m => { state[m.key] = m.base; });
-  // start from N-1 days ago
-  for (let i = N - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const data = {};
-    METRICS.forEach(m => {
-      const range = m.max - m.min;
-      // drift 5-15% per day, pulled toward baseline
-      const drift = (Math.random() - 0.5) * range * 0.15;
-      const pull = (m.base - state[m.key]) * 0.18;
-      state[m.key] = Math.max(m.min, Math.min(m.max, state[m.key] + drift + pull));
-      data[m.key] = state[m.key];
-    });
-    data.readiness = deriveReadiness(data);
-    days.push({ date: ISO(d), data });
-  }
-  return days;
-}
-
 // Local-date formatter. We deliberately avoid `toISOString().slice(0,10)` —
 // that converts to UTC first, which in timezones like UTC+8 turns local
 // midnight on day N into day N−1 UTC, making "today" off by one everywhere.
@@ -1741,40 +1692,24 @@ const parseLocalDate = (ymd) => {
 };
 const todayISO = ISO(new Date());
 
-// Minimum fields every day must carry — matches the 7-coral mapping.
-const REQUIRED_METRIC_KEYS = ['sleep','hrv','rhr','activity','deepSleep','bodyTemp','respRate'];
+// Always 'simulated' in the public build: days come from ouraSimulator.js,
+// which is a pure function of the date, so nothing needs caching.
+let dataSource = 'simulated';
+let lastReadAt = new Date();
+// Bumped whenever the data generator changes — invalidates omikuji cached
+// against an older series so rank and signature stay consistent.
+const DATA_VERSION = 'oura-sim-v1';
 
-// 'oura' once live data has replaced mocks; 'mock' otherwise. Persisted in
-// each day's .source field so we know where the cache came from.
-let dataSource = 'mock';
-
-// load or initialize days
 let days = [];
+function readSimulatedDays() {
+  return simulateOuraDays(30).map(d => ({
+    ...d,
+    data: { ...d.data, readiness: deriveReadiness(d.data) },
+  }));
+}
 async function loadDays() {
-  try {
-    const res = await window.storage?.get('garden:days');
-    if (res && res.value) {
-      const loaded = JSON.parse(res.value);
-      const fresh = Array.isArray(loaded) && loaded.length > 0 &&
-        REQUIRED_METRIC_KEYS.every(k => k in (loaded[0].data || {}));
-      if (fresh) {
-        days = loaded;
-        dataSource = loaded.some(d => d.source === 'oura') ? 'oura' : 'mock';
-        return;
-      }
-    }
-  } catch (e) {}
-  days = generateMockDays(30);
-  dataSource = 'mock';
-  saveDays();
-}
-async function saveDays() {
-  try { await window.storage?.set('garden:days', JSON.stringify(days)); } catch (e) {}
-}
-async function regenMock() {
-  days = generateMockDays(30);
-  dataSource = 'mock';
-  await saveDays();
+  days = readSimulatedDays();
+  dataSource = 'simulated';
 }
 
 // bottles: { 'YYYY-MM-DD': { text, createdAt, resonance } }
@@ -1809,6 +1744,12 @@ async function saveBottles() {
 let omikujiCache = {};
 async function loadOmikuji() {
   try {
+    const ver = await window.storage?.get('garden:data-version');
+    if (ver?.value !== DATA_VERSION) {
+      await window.storage?.set('garden:omikuji', '{}');
+      await window.storage?.set('garden:data-version', DATA_VERSION);
+      return;
+    }
     const res = await window.storage?.get('garden:omikuji');
     if (res && res.value) omikujiCache = JSON.parse(res.value);
   } catch (e) {}
@@ -3299,43 +3240,10 @@ await preloadAllCorals((done, total, key) => {
   }
 });
 
-// Auto-sync from Oura if local config is set and today's cutoff has passed.
-// Happens silently during loading screen; surfaces errors in console, not UI.
-// If this fails, the cached days[] from loadDays() is used (graceful degrade).
-// Merge Oura data with a mock series to guarantee a full N-day window.
-// Any date Oura doesn't cover (today's not-yet-slept, missed nights, sensor
-// gaps) falls back to the mock value and is tagged source: 'mock-fill' so
-// we can tell it apart in logs / future visual treatments.
-function mergeOuraWithMockFill(ouraDays, nDays) {
-  const mock = generateMockDays(nDays);
-  const ouraByDate = new Map(ouraDays.map(d => [d.date, d]));
-  return mock.map(m =>
-    ouraByDate.get(m.date) || { ...m, source: 'mock-fill' }
-  );
-}
-
-async function autoSyncIfStale() {
-  if (!shouldAutoSync()) return false;
-  if (loadingSub) loadingSub.textContent = 'syncing with oura ring…';
-  try {
-    const ouraDays = await fetchOuraDays(30);
-    if (!ouraDays.length) throw new Error('Oura returned no days.');
-    days = mergeOuraWithMockFill(ouraDays, 30);
-    dataSource = 'oura';
-    await saveDays();
-    markSyncTime();
-    // New data → signatures change; invalidate cached omikuji
-    omikujiCache = {};
-    await saveOmikuji();
-    const realCount = days.filter(d => d.source === 'oura').length;
-    console.log(`[coral-garden] Synced ${realCount}/30 real Oura days, ${30 - realCount} mock-filled.`);
-    return true;
-  } catch (err) {
-    console.warn('[coral-garden] Auto-sync failed, using cached data:', err);
-    return false;
-  }
-}
-await autoSyncIfStale();
+// Simulated Oura read — a brief pause on the loading screen so the ritual
+// of "the ring reporting in" is still felt, even without the live API.
+if (loadingSub) loadingSub.textContent = 'reading oura ring · simulated';
+await new Promise(r => setTimeout(r, 700));
 if (loadingSub) loadingSub.textContent = 'settling into the reef';
 
 buildGarden();
@@ -4335,10 +4243,8 @@ Return STRICT JSON with no other text and no markdown:
 }
 
 async function drawLanternGuidance() {
-  // Base on the most recent complete day (yesterday in Oura mode, today in mock)
-  const viewDay = dataSource === 'oura'
-    ? (latestCompleteDay(days) || days[days.length - 1])
-    : days[days.length - 1];
+  // Base on the most recent complete day — yesterday, as with live Oura
+  const viewDay = days[days.length - 2] || days[days.length - 1];
   if (!viewDay) return;
   const key = viewDay.date;
 
@@ -4513,66 +4419,19 @@ document.getElementById('reader-edit').addEventListener('click', () => {
 // UI PANEL UPDATES
 // ═══════════════════════════════════════════════════════════════════════
 function updateMetricsPanel() {
-  // In Oura mode, always show YESTERDAY'S entry (days[len-2]) — that's the
-  // sign's frame of reference. If Oura hasn't synced yesterday yet, the
-  // entry will be mock-fill and the source indicator flags this so the user
-  // knows to click REFRESH FROM OURA.
-  // In mock mode, show today.
-  let viewDay;
-  if (dataSource === 'oura') {
-    viewDay = days[days.length - 2] || days[days.length - 1];
-  } else {
-    viewDay = days[days.length - 1];
-  }
+  // Show YESTERDAY'S entry, as live Oura did — today's sleep session and
+  // activity aren't complete yet, and yesterday is the omikuji's frame.
+  const viewDay = days[days.length - 2] || days[days.length - 1];
   const isToday = viewDay.date === todayISO;
   document.getElementById('bio-date-label').textContent = isToday ? 'Today' : 'Yesterday';
   document.getElementById('bio-date').textContent = viewDay.date;
 
-  // Source indicator — distinguishes real Oura data, mock-fill (sync lag),
-  // and full mock mode. If the viewed day is mock-fill, flag it visibly.
   const srcEl = document.getElementById('bio-source');
-  srcEl.classList.remove('live', 'error');
-  if (dataSource === 'oura') {
-    if (viewDay.source === 'oura') {
-      const lastSync = getLastSyncTime();
-      if (hasAutoConfig() && lastSync > 0) {
-        const t = new Date(lastSync);
-        const hh = String(t.getHours()).padStart(2, '0');
-        const mm = String(t.getMinutes()).padStart(2, '0');
-        srcEl.textContent = `auto-synced · ${hh}:${mm}`;
-      } else {
-        srcEl.textContent = 'via oura ring · live data';
-      }
-      srcEl.classList.add('live');
-    } else {
-      // Mock-fill — yesterday's session hasn't synced yet
-      srcEl.textContent = 'yesterday not yet synced · click refresh';
-      srcEl.classList.add('error');
-    }
-  } else {
-    srcEl.textContent = 'mock reading';
-  }
-
-  // Oura button reflects connection state
-  const ouraBtn = document.getElementById('oura-btn');
-  if (ouraBtn) {
-    if (hasAutoConfig()) {
-      // Local config path — auto-sync handles daily refresh; click forces now
-      const lastSync = getLastSyncTime();
-      if (lastSync > 0) {
-        const t = new Date(lastSync);
-        const hh = String(t.getHours()).padStart(2, '0');
-        const mm = String(t.getMinutes()).padStart(2, '0');
-        ouraBtn.textContent = `◈ AUTO · LAST ${hh}:${mm}`;
-      } else {
-        ouraBtn.textContent = `◈ AUTO · ${getAutoSyncHour()}:00 DAILY`;
-      }
-    } else if (hasOuraToken()) {
-      ouraBtn.textContent = '◈ REFRESH FROM OURA';
-    } else {
-      ouraBtn.textContent = '◈ CONNECT OURA';
-    }
-  }
+  srcEl.classList.remove('error');
+  srcEl.classList.add('live');
+  const hh = String(lastReadAt.getHours()).padStart(2, '0');
+  const mm = String(lastReadAt.getMinutes()).padStart(2, '0');
+  srcEl.textContent = `simulated oura reading · ${hh}:${mm}`;
 
   const wrap = document.getElementById('metrics');
   wrap.innerHTML = METRICS.map(m => {
@@ -4604,107 +4463,19 @@ function updateViewDate() {
   document.getElementById('view-date').textContent = todayISO;
 }
 
-// ═══ Oura Ring: connect / refresh flow ═══
-const ouraOverlay   = document.getElementById('oura-overlay');
-const ouraInput     = document.getElementById('oura-token-input');
-const ouraError     = document.getElementById('oura-error');
-const ouraProgress  = document.getElementById('oura-progress');
-const ouraSaveBtn   = document.getElementById('oura-save');
-const ouraCancelBtn = document.getElementById('oura-cancel');
-
-function openOuraModal() {
-  ouraError.style.display = 'none';
-  ouraError.textContent = '';
-  ouraProgress.style.display = 'none';
-  ouraSaveBtn.disabled = false;
-  ouraInput.value = '';
-  showModal(ouraOverlay);
-  setTimeout(() => ouraInput.focus(), 300);
-}
-
-async function runOuraFetch() {
-  ouraError.style.display = 'none';
-  ouraProgress.style.display = 'block';
-  ouraProgress.textContent = 'Fetching last 30 days…';
-  ouraSaveBtn.disabled = true;
-  try {
-    const ouraDays = await fetchOuraDays(30);
-    if (!ouraDays.length) {
-      throw new Error('No days returned (Oura had no sleep sessions in this window).');
-    }
-    days = mergeOuraWithMockFill(ouraDays, 30);
-    dataSource = 'oura';
-    await saveDays();
-    markSyncTime();
-    omikujiCache = {};  // invalidate — new data means new signatures
-    await saveOmikuji();
-    buildGarden();
-    updateMetricsPanel();
-    updateBottleHint();
-    hideModal(ouraOverlay);
-  } catch (err) {
-    console.error('Oura fetch failed:', err);
-    ouraError.textContent = err.message || String(err);
-    ouraError.style.display = 'block';
-    ouraProgress.style.display = 'none';
-    ouraSaveBtn.disabled = false;
-  }
-}
-
+// ═══ Oura Ring (simulated): re-read ═══
+// Re-reads the simulator. Past days are fixed by date, so this only changes
+// anything when the calendar has rolled over since the page was opened.
 document.getElementById('oura-btn').addEventListener('click', async () => {
-  if (hasOuraToken()) {
-    // Refresh directly with the stored token (no modal needed).
-    // Works for both auto-config path and localStorage-token path.
-    const srcEl = document.getElementById('bio-source');
-    srcEl.textContent = 'fetching…';
-    srcEl.classList.remove('live', 'error');
-    try {
-      const ouraDays = await fetchOuraDays(30);
-      if (!ouraDays.length) throw new Error('No days from Oura.');
-      days = mergeOuraWithMockFill(ouraDays, 30);
-      dataSource = 'oura';
-      await saveDays();
-      markSyncTime();
-      omikujiCache = {};
-      await saveOmikuji();
-      buildGarden();
-      updateMetricsPanel();
-      updateBottleHint();
-    } catch (err) {
-      console.error('Oura refresh failed:', err);
-      srcEl.classList.add('error');
-      const tokenBad = err.message?.includes('401') || err.message?.includes('rejected');
-      if (tokenBad && hasAutoConfig()) {
-        // Auto-config PAT is wrong — can't fix with the UI. Tell user where.
-        srcEl.textContent = 'oura token invalid — edit ouraConfig.local.js';
-      } else if (tokenBad) {
-        // localStorage-path token — clear and reopen modal
-        clearOuraToken();
-        srcEl.textContent = 'oura token rejected — reconnect';
-        openOuraModal();
-      } else {
-        srcEl.textContent = 'oura refresh failed — check console';
-      }
-    }
-  } else {
-    openOuraModal();
-  }
-});
-
-ouraCancelBtn.addEventListener('click', () => hideModal(ouraOverlay));
-ouraSaveBtn.addEventListener('click', async () => {
-  const token = ouraInput.value.trim();
-  if (!token) {
-    ouraError.textContent = 'Please paste a Personal Access Token.';
-    ouraError.style.display = 'block';
-    return;
-  }
-  setOuraToken(token);
-  await runOuraFetch();
-});
-// Enter key submits
-ouraInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') ouraSaveBtn.click();
+  const srcEl = document.getElementById('bio-source');
+  srcEl.classList.remove('live', 'error');
+  srcEl.textContent = 'reading oura ring…';
+  await new Promise(r => setTimeout(r, 900));
+  days = readSimulatedDays();
+  lastReadAt = new Date();
+  buildGarden();
+  updateMetricsPanel();
+  updateBottleHint();
 });
 
 // ═══ Info modals: Interaction Guide + Coral Mapping ═══
@@ -4736,14 +4507,8 @@ window.__garden = {
       hrv: Math.round(d.data.hrv),
     })));
     console.log('todayISO:', todayISO);
-    const ls = Number(localStorage.getItem('garden:last-sync')) || 0;
-    console.log('last sync:', ls ? new Date(ls).toLocaleString() : '(never)');
     console.log('dataSource:', dataSource);
   },
-  // Direct Oura API peek — tells you which dates each endpoint actually
-  // returned, so you can distinguish "Oura has no data for 4/21" from
-  // "we merged the data wrong".
-  inspectOura: inspectOuraRaw,
 };
 
 // ═══════════════════════════════════════════════════════════════════════
