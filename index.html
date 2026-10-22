@@ -2589,7 +2589,7 @@ const CORAL_REGISTRY = {
   gorgonia: {  // sea fan · HRV — soft coral, sways with the current
     metric: 'hrv',         min: 38,   max: 68,
     scaleMin: 0.70, scaleMax: 1.70,
-    colorLow: '#9c9cc8', colorHigh: '#d4a2bc',       // lavender grey → mauve pink (the reef's one pink)
+    colorLow: '#aaa0cc', colorHigh: '#e8a4c4',       // lavender → rose pink (the cool pink)
     colorRange: [35, 80],
     glbPath: 'assets/models/gorgonia.glb',
     swayAmp: 0.10,                                   // ~5.7° rotation amplitude
@@ -2609,14 +2609,14 @@ const CORAL_REGISTRY = {
   acropora: {  // staghorn · Activity
     metric: 'activity',    min: 53,   max: 90,
     scaleMin: 0.70, scaleMax: 1.75,                  // widest — activity is most kinetic
-    colorLow: '#cfd596', colorHigh: '#de9478',       // pale lime → muted coral orange
+    colorLow: '#cfd596', colorHigh: '#e3a36c',       // pale lime → apricot orange (kept clear of the disc coral's pink)
     colorRange: [40, 95],
     glbPath: 'assets/models/acropora.glb',
   },
   fungia: {  // disc coral · Deep Sleep
     metric: 'deepSleep',   min: 45,   max: 104,
     scaleMin: 0.80, scaleMax: 1.55,
-    colorLow: '#d8d0c4', colorHigh: '#c29a70',       // misty cream → caramel
+    colorLow: '#e0d2c0', colorHigh: '#d9958a',       // warm cream → terracotta pink (the warm pink)
     colorRange: [30, 110],
     glbPath: 'assets/models/fungia.glb',
   },
@@ -2632,7 +2632,7 @@ const CORAL_REGISTRY = {
   pocillopora: {  // fine-branched staghorn · Resp Rate
     metric: 'respRate',    min: 13.2, max: 15.3,
     scaleMin: 0.75, scaleMax: 1.50,
-    colorLow: '#a8bccb', colorHigh: '#e4e0d8',       // blue-grey → pearl white (fast breath, white tips)
+    colorLow: '#a8bccb', colorHigh: '#ead6d2',       // blue-grey → blush white (fast breath, pale tips)
     colorRange: [11, 17],
     glbPath: 'assets/models/pocillopora.glb',
   },
@@ -2819,7 +2819,7 @@ function buildCoralInstance(key, rawValue) {
     const t = meshes.length > 1 ? (idx / (meshes.length - 1)) - 0.5 : 0;
     const perMesh = new THREE.Color().setHSL(
       (baseHsl.h + t * 0.035 + 1) % 1,                       // ±0.0175 hue
-      Math.min(1, baseHsl.s * 1.1),                           // slight lift only — no candy tones
+      Math.min(1, baseHsl.s * 1.3),                           // moderate lift: alive, not neon (1.65 read as neon, 1.1 as grey)
       Math.max(0.15, Math.min(0.85, baseHsl.l + t * 0.11)),   // ±0.055 lightness
     );
     o.material.color.copy(perMesh);
