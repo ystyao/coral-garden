@@ -2582,14 +2582,14 @@ const CORAL_REGISTRY = {
   favia: {  // brain coral · Sleep
     metric: 'sleep',       min: 66,   max: 89,
     scaleMin: 0.75, scaleMax: 1.60,
-    colorLow: '#8ab4a8', colorHigh: '#f0d870',       // sage teal → honey yellow
+    colorLow: '#8fae9f', colorHigh: '#cdbf8f',       // sage → soft khaki (beige-green family)
     colorRange: [58, 92],
     glbPath: 'assets/models/favia.glb',
   },
   gorgonia: {  // sea fan · HRV — soft coral, sways with the current
     metric: 'hrv',         min: 38,   max: 68,
     scaleMin: 0.70, scaleMax: 1.70,
-    colorLow: '#9c9cc8', colorHigh: '#f0b0d0',       // lavender grey → cherry-blossom pink
+    colorLow: '#9c9cc8', colorHigh: '#d4a2bc',       // lavender grey → mauve pink (the reef's one pink)
     colorRange: [35, 80],
     glbPath: 'assets/models/gorgonia.glb',
     swayAmp: 0.10,                                   // ~5.7° rotation amplitude
@@ -2599,7 +2599,7 @@ const CORAL_REGISTRY = {
     metric: 'rhr',         min: 57,   max: 68,
     scaleMin: 0.75, scaleMax: 1.60,
     scaleInverse: true,                              // low RHR = relaxed = large
-    colorLow: '#88cabf', colorHigh: '#f5bc98',       // lake jade → peach
+    colorLow: '#88c2b6', colorHigh: '#d8ad74',       // lake jade → amber
     colorRange: [48, 80],
     glbPath: 'assets/models/xenia.glb',
     pulseDriven: true,                               // RHR/60 Hz pulse
@@ -2609,14 +2609,14 @@ const CORAL_REGISTRY = {
   acropora: {  // staghorn · Activity
     metric: 'activity',    min: 53,   max: 90,
     scaleMin: 0.70, scaleMax: 1.75,                  // widest — activity is most kinetic
-    colorLow: '#d8e088', colorHigh: '#f8a890',       // tender lime → soft coral peach
+    colorLow: '#cfd596', colorHigh: '#de9478',       // pale lime → muted coral orange
     colorRange: [40, 95],
     glbPath: 'assets/models/acropora.glb',
   },
   fungia: {  // disc coral · Deep Sleep
     metric: 'deepSleep',   min: 45,   max: 104,
     scaleMin: 0.80, scaleMax: 1.55,
-    colorLow: '#d8d0c8', colorHigh: '#c89a9c',       // misty cream → dusty rose (apart from the sea fan's pink)
+    colorLow: '#d8d0c4', colorHigh: '#c29a70',       // misty cream → caramel
     colorRange: [30, 110],
     glbPath: 'assets/models/fungia.glb',
   },
@@ -2624,15 +2624,15 @@ const CORAL_REGISTRY = {
     metric: 'bodyTemp',    min: -0.35, max: 0.7,    // fever beyond +0.7 reads as full stress
     scaleMin: 0.80, scaleMax: 1.55,
     scaleFromAbs: true,
-    colorLow: '#c8e0e8', colorHigh: '#f0a098',       // ice blue → peach-blush (no crimson)
-    colorMid: '#f4d888',                              // soft gold at baseline
+    colorLow: '#c4dae2', colorHigh: '#cc8468',       // ice blue → ochre red (fever)
+    colorMid: '#dcc48a',                              // muted gold at baseline
     colorRange: [-1.0, 1.0],
     glbPath: 'assets/models/millepora.glb',
   },
   pocillopora: {  // fine-branched staghorn · Resp Rate
     metric: 'respRate',    min: 13.2, max: 15.3,
     scaleMin: 0.75, scaleMax: 1.50,
-    colorLow: '#b8d0e0', colorHigh: '#d8b8e0',       // pale sky blue → soft lilac
+    colorLow: '#a8bccb', colorHigh: '#e4e0d8',       // blue-grey → pearl white (fast breath, white tips)
     colorRange: [11, 17],
     glbPath: 'assets/models/pocillopora.glb',
   },
@@ -2819,7 +2819,7 @@ function buildCoralInstance(key, rawValue) {
     const t = meshes.length > 1 ? (idx / (meshes.length - 1)) - 0.5 : 0;
     const perMesh = new THREE.Color().setHSL(
       (baseHsl.h + t * 0.035 + 1) % 1,                       // ±0.0175 hue
-      Math.min(1, baseHsl.s * 1.65),                          // +65% saturation
+      Math.min(1, baseHsl.s * 1.1),                           // slight lift only — no candy tones
       Math.max(0.15, Math.min(0.85, baseHsl.l + t * 0.11)),   // ±0.055 lightness
     );
     o.material.color.copy(perMesh);
