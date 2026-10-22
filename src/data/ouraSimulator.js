@@ -62,7 +62,9 @@ const round = (v, digits = 0) => {
 };
 
 // Returns `n` days ending today (oldest first), each
-// { date, data: {sleep, hrv, rhr, activity, deepSleep, bodyTemp, respRate}, source }.
+// { date, data: {sleep, hrv, rhr, activity, deepSleep, bodyTemp, respRate,
+//   steps, activeMinutes, sedentaryHours, stressMinutes, restoreMinutes}, source }.
+// The first seven drive the corals; the rest describe the waking day.
 export function simulateOuraDays(n = 30, now = new Date()) {
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
@@ -100,6 +102,17 @@ export function simulateOuraDays(n = 30, now = new Date()) {
       bodyTemp:  round(clamp(0.38 * luteal + illness + 0.1 * g(), -1.5, 2.0), 2),
       respRate:  round(clamp(14 + 0.5 * g() - 0.3 * recovery + 2.2 * illness + 0.3 * luteal, 10, 20), 1),
     };
+
+    // Waking-day detail (Oura daily_activity / daily_stress). Drawn after
+    // the seven coral metrics so adding these never shifts their values.
+    const a = (data.activity - 72) / 15;   // activity relative to baseline
+    Object.assign(data, {
+      steps:          Math.round(clamp(7800 + 2600 * a + 900 * g(), 1200, 22000)),
+      activeMinutes:  Math.round(clamp(42 + 20 * a + 9 * g(), 0, 180)),
+      sedentaryHours: round(clamp(8.2 - 1.2 * a + 0.8 * g(), 3, 14), 1),
+      stressMinutes:  Math.round(clamp(55 - 18 * recovery + 35 * illness + 18 * g(), 0, 300)),
+      restoreMinutes: Math.round(clamp(80 + 22 * recovery - 25 * illness + 20 * g(), 0, 300)),
+    });
 
     if (d >= windowStart) out.push({ date, data, source: 'oura-sim' });
   }

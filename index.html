@@ -133,6 +133,20 @@
     border: 1px solid rgba(212,181,118, 0.22);
     padding: 18px 18px 14px;
   }
+  .bio-panel.selected { border-color: rgba(212,181,118,0.6); }
+  .bio-panel.flash { animation: panelFlash 1.2s ease-out; }
+  @keyframes panelFlash {
+    0% { box-shadow: 0 0 0 0 rgba(212,181,118,0.45); }
+    100% { box-shadow: 0 0 0 14px rgba(212,181,118,0); }
+  }
+  .bio-panel .bio-back {
+    display: none; margin-top: 10px; width: 100%;
+    background: none; border: none; padding: 4px 0;
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-size: 11px; letter-spacing: 0.15em;
+    color: rgba(212,181,118,0.85); cursor: pointer; text-align: left;
+  }
+  .bio-panel.selected .bio-back { display: block; }
   .bio-panel h2 {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 300; font-size: 10px; letter-spacing: 0.4em;
@@ -405,39 +419,6 @@
     font-size: 11px; letter-spacing: 0.1em;
     color: rgba(244,237,224,0.75);
     line-height: 1.4;
-  }
-
-  /* ═══ nav pad (bottom-center) — move the camera forward/back/left/right ═══ */
-  .nav-pad {
-    position: fixed; bottom: 24px; left: 50%;
-    transform: translateX(-50%); z-index: 10;
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-  }
-  .nav-pad .nav-row {
-    display: flex; gap: 4px;
-  }
-  .nav-btn {
-    width: 40px; height: 40px;
-    background: rgba(10, 20, 28, 0.6);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(212,181,118, 0.3);
-    color: rgba(244,237,224,0.8);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    transition: all 0.2s;
-    font-family: inherit;
-    padding: 0;
-  }
-  .nav-btn:hover, .nav-btn.active {
-    background: rgba(212,181,118,0.15);
-    border-color: var(--gold);
-    color: var(--gold);
-  }
-  .nav-btn.reset {
-    color: rgba(212,181,118,0.7);
-    font-size: 18px;
   }
 
   /* ═══ bottle hint (bottom-left) ═══ */
@@ -1145,6 +1126,22 @@
     align-items: center; justify-content: center;
     transition: opacity 1.2s;
   }
+  .loading-screen .title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300; font-size: 30px;
+    color: rgba(244,237,224,0.88);
+    letter-spacing: 0.18em; margin-top: 18px;
+  }
+  .loading-screen .track {
+    width: 260px; max-width: 70vw; height: 2px; margin-top: 34px;
+    background: rgba(244,237,224,0.14);
+    overflow: hidden;
+  }
+  .loading-screen .bar {
+    height: 100%; width: 0%;
+    background: var(--gold);
+    transition: width 0.3s ease-out;
+  }
   .loading-screen.hide { opacity: 0; pointer-events: none; }
   .loading-screen .mark {
     font-family: 'Ma Shan Zheng', cursive;
@@ -1238,7 +1235,9 @@
 
 <div class="loading-screen" id="loading">
   <div class="mark">◈</div>
-  <div class="sub" id="loading-sub">settling into the reef</div>
+  <div class="title">The Coral Garden</div>
+  <div class="track"><div class="bar" id="loading-bar"></div></div>
+  <div class="sub" id="loading-sub">opening the garden · 0%</div>
 </div>
 
 <div id="canvas-container"></div>
@@ -1255,7 +1254,7 @@
   <div class="current-view">
     Viewing <strong id="view-date">today</strong>
   </div>
-  <button class="time-mode-btn" id="night-mode-btn" title="Toggle night mode for demo">☾ NIGHT MODE</button>
+  <button class="time-mode-btn" id="night-mode-btn" title="Day 07:00–19:00, night otherwise · click to switch manually">☾ NIGHT MODE</button>
 </div>
 
 <div class="bio-panel">
@@ -1263,6 +1262,7 @@
   <div class="sub">Sediment of the body</div>
   <div class="bio-source live" id="bio-source">simulated oura reading</div>
   <div id="metrics"></div>
+  <button class="bio-back" id="bio-back">← Go back to the garden</button>
   <div class="mock-controls">
     <button id="oura-btn" class="primary">◈ SYNC OURA · SIMULATED</button>
     <button id="interaction-guide-btn">◈ INTERACTION GUIDE</button>
@@ -1278,18 +1278,39 @@
 
     <h3>Navigation</h3>
     <ul>
-      <li>Drag the scene to rotate the view.</li>
-      <li>Scroll to zoom in and out.</li>
-      <li>Use the on-screen arrow pad (bottom centre) or WASD / arrow keys to pan the camera.</li>
-      <li>Double-click a coral cluster to dive to it.</li>
-      <li>Double-click empty water to return to the default view.</li>
+      <li>Drag (left mouse button) to grab the seabed and drift through the reef.</li>
+      <li>Right-drag, or hold Shift and drag, to turn the view.</li>
+      <li>Scroll to zoom in and out. WASD / arrow keys also move the camera.</li>
+      <li>On touch screens: one finger moves, two fingers pinch to zoom and slide to turn.</li>
+      <li>Double-click a coral cluster to dive to it. The Body panel (top right) then shows
+        that day's seven readings — the numbers that grew those corals.</li>
+      <li>Double-click the same cluster again, or press <em>Go back to the garden</em> in the panel,
+        to rise back to eye level where you were.</li>
+      <li>Double-click open water to return to the shrine.</li>
     </ul>
+
+    <h3>Day &amp; Night</h3>
+    <p>
+      The garden follows your local clock: daylight from 07:00 to 19:00, night from 19:00 to 07:00.
+      The <span style="color:var(--gold)">☾ NIGHT MODE / ☀ DAY MODE</span> button switches by hand
+      until the clock next crosses dawn or dusk.
+    </p>
 
     <h3>The Hokora Shrine</h3>
     <p>
       Click the <span style="color:var(--gold)">Hokora</span> at the downstream end of the river to draw today's
       <em>omikuji</em> — a daily fortune poem woven from your biometrics. One reading per day;
       revisiting the shrine shows the same poem.
+    </p>
+
+    <h3>The Jellyfish Lantern</h3>
+    <p>
+      At night a small <span style="color:var(--gold)">jellyfish lantern</span> glows on the sand beside the shrine.
+      Click it to receive tonight's whisper: a gentle sleep guide and a short deep-sea bedtime tale,
+      both written from the day you have just lived, from waking until now: how you woke (last
+      night's sleep, deep sleep, HRV, resting heart rate, temperature and breath) and how the day
+      moved (activity, steps, active and sedentary time, stress and restorative calm). The guide
+      reads that day, and the tale's mood quietly mirrors it.
     </p>
 
     <h3>The Drifting Bottles</h3>
@@ -1406,20 +1427,6 @@
 <div class="hokora-progress" id="hokora-progress">
   <div class="label" id="hokora-progress-label">Loading Hokora · 0%</div>
   <div class="track"><div class="bar" id="hokora-progress-bar"></div></div>
-</div>
-
-<div class="nav-pad" id="nav-pad">
-  <div class="nav-row">
-    <button class="nav-btn" data-dir="forward" title="Move forward (W)">▲</button>
-  </div>
-  <div class="nav-row">
-    <button class="nav-btn" data-dir="left" title="Move left (A)">◀</button>
-    <button class="nav-btn reset" id="reset-view" title="Reset view">⊙</button>
-    <button class="nav-btn" data-dir="right" title="Move right (D)">▶</button>
-  </div>
-  <div class="nav-row">
-    <button class="nav-btn" data-dir="back" title="Move back (S)">▼</button>
-  </div>
 </div>
 
 <!-- Omikuji Modal -->
@@ -1696,6 +1703,8 @@ const todayISO = ISO(new Date());
 // which is a pure function of the date, so nothing needs caching.
 let dataSource = 'simulated';
 let lastReadAt = new Date();
+// Day shown in the bio panel after double-clicking a cluster (null = yesterday)
+let selectedDay = null;
 // Bumped whenever the data generator changes — invalidates omikuji cached
 // against an older series so rank and signature stay consistent.
 const DATA_VERSION = 'oura-sim-v1';
@@ -2233,6 +2242,36 @@ shrineTodayLabel.position.set(0.95, 1.55, 0);
 shrineTodayLabel.scale.set(1.8, 0.45, 1);
 fossilGroup.add(shrineTodayLabel);
 
+// Loading-screen progress: sums bytes across every GLB (7 corals + shrine)
+// so the bar reflects real download progress, not a count of finished files.
+const LOAD_FILE_COUNT = 8;
+const loadBytes = new Map();   // url → { loaded, total }
+function reportLoadProgress(url, xhr) {
+  const prev = loadBytes.get(url) || { loaded: 0, total: 0 };
+  const total = xhr.lengthComputable && xhr.total > 0 ? xhr.total : prev.total;
+  loadBytes.set(url, { loaded: xhr.loaded, total: Math.max(total, xhr.loaded) });
+  renderLoadProgress();
+}
+function markLoadDone(url) {
+  const prev = loadBytes.get(url);
+  const size = prev ? Math.max(prev.total, prev.loaded, 1) : 1;
+  loadBytes.set(url, { loaded: size, total: size });
+  renderLoadProgress();
+}
+function renderLoadProgress() {
+  const entries = [...loadBytes.values()];
+  // Files that haven't reported a size yet count as the average known size
+  const known = entries.filter(e => e.total > 0);
+  const avg = known.length ? known.reduce((a, e) => a + e.total, 0) / known.length : 1;
+  const total = known.reduce((a, e) => a + e.total, 0) + (LOAD_FILE_COUNT - known.length) * avg;
+  const loaded = entries.reduce((a, e) => a + e.loaded, 0);
+  const pct = Math.min(100, Math.round((loaded / total) * 100));
+  const bar = document.getElementById('loading-bar');
+  const sub = document.getElementById('loading-sub');
+  if (bar) bar.style.width = pct + '%';
+  if (sub) sub.textContent = pct < 100 ? `growing the reef · ${pct}%` : 'settling into the reef';
+}
+
 scene.add(fossilGroup);
 fossilGroup.position.set(2.4, 0.4, 9.2);
 fossilGroup.rotation.y = -0.7;
@@ -2261,12 +2300,14 @@ fossilGroup.rotation.y = -0.7;
       const bbox = new THREE.Box3().setFromObject(model);
       model.position.y -= bbox.min.y;
       fossilGroup.add(model);
+      markLoadDone('assets/hokora_opt.glb');
       if (progressEl) {
         progressEl.classList.add('hide');
         setTimeout(() => { progressEl.style.display = 'none'; }, 900);
       }
     },
     (xhr) => {
+      reportLoadProgress('assets/hokora_opt.glb', xhr);
       if (!barEl || !labelEl) return;
       if (xhr.lengthComputable && xhr.total > 0) {
         const pct = (xhr.loaded / xhr.total) * 100;
@@ -2483,7 +2524,7 @@ const jellyfishLantern = makeJellyfishLantern();
   jellyfishLantern.position.set(lx, groundYAt(lx, lz) + 0.02, lz);
   jellyfishLantern.rotation.y = Math.random() * Math.PI * 2;
 }
-jellyfishLantern.visible = false;  // shown only when demoNightMode is on
+jellyfishLantern.visible = false;  // shown only at night (see syncNightUI)
 scene.add(jellyfishLantern);
 
 // ═══ reef bedrock — natural-looking rocks ═══
@@ -2530,60 +2571,69 @@ function addReefRock(x, z, size, y = 0) {
 // See CLAUDE.md §"Body Data → Coral Visual Mapping Table".
 // ═══════════════════════════════════════════════════════════════════════
 
-// min/max are tuned to Lorriane's typical daily variation window (not Oura's
-// theoretical range) so subtle day-to-day changes produce visible hue shifts.
+// min/max (size) span Lorriane's own 5th–95th percentile (measured over a
+// year of the simulated series) and go through expandContrast(), so
+// neighbouring days differ clearly in size. colorRange keeps the original
+// wide window so colours stay in soft blends.
 // Colors walk a large hue arc (not just light/dark) so even a 10% data
 // change is readable; palette biases toward spring-reef pastels (no crimson,
 // no black-brown) for a fresh, multicolored feel.
 const CORAL_REGISTRY = {
   favia: {  // brain coral · Sleep
-    metric: 'sleep',       min: 58,   max: 92,      // was 40-100
-    scaleMin: 0.90, scaleMax: 1.50,
+    metric: 'sleep',       min: 66,   max: 89,
+    scaleMin: 0.75, scaleMax: 1.60,
     colorLow: '#8ab4a8', colorHigh: '#f0d870',       // sage teal → honey yellow
+    colorRange: [58, 92],
     glbPath: 'assets/models/favia.glb',
   },
   gorgonia: {  // sea fan · HRV — soft coral, sways with the current
-    metric: 'hrv',         min: 35,   max: 80,      // was 20-90
-    scaleMin: 0.85, scaleMax: 1.55,
+    metric: 'hrv',         min: 38,   max: 68,
+    scaleMin: 0.70, scaleMax: 1.70,
     colorLow: '#9c9cc8', colorHigh: '#f0b0d0',       // lavender grey → cherry-blossom pink
+    colorRange: [35, 80],
     glbPath: 'assets/models/gorgonia.glb',
     swayAmp: 0.10,                                   // ~5.7° rotation amplitude
     swayFreq: 0.22,                                  // Hz — slow, 4.5s per cycle
   },
   xenia: {  // pulsating coral · RHR (inverse scale)
-    metric: 'rhr',         min: 48,   max: 80,      // was 45-85
-    scaleMin: 0.90, scaleMax: 1.55,
+    metric: 'rhr',         min: 57,   max: 68,
+    scaleMin: 0.75, scaleMax: 1.60,
     scaleInverse: true,                              // low RHR = relaxed = large
     colorLow: '#88cabf', colorHigh: '#f5bc98',       // lake jade → peach
+    colorRange: [48, 80],
     glbPath: 'assets/models/xenia.glb',
     pulseDriven: true,                               // RHR/60 Hz pulse
     swayAmp: 0.05,                                   // lighter sway on top of pulse
     swayFreq: 0.30,
   },
   acropora: {  // staghorn · Activity
-    metric: 'activity',    min: 40,   max: 95,      // was 30-100
-    scaleMin: 0.85, scaleMax: 1.65,                  // widest — activity is most kinetic
+    metric: 'activity',    min: 53,   max: 90,
+    scaleMin: 0.70, scaleMax: 1.75,                  // widest — activity is most kinetic
     colorLow: '#d8e088', colorHigh: '#f8a890',       // tender lime → soft coral peach
+    colorRange: [40, 95],
     glbPath: 'assets/models/acropora.glb',
   },
   fungia: {  // disc coral · Deep Sleep
-    metric: 'deepSleep',   min: 30,   max: 110,     // was 0-180
-    scaleMin: 0.90, scaleMax: 1.45,                  // tightened — no "giant disc"
-    colorLow: '#d8d0c8', colorHigh: '#e8b0c0',       // misty cream → rose pink
+    metric: 'deepSleep',   min: 45,   max: 104,
+    scaleMin: 0.80, scaleMax: 1.55,
+    colorLow: '#d8d0c8', colorHigh: '#c89a9c',       // misty cream → dusty rose (apart from the sea fan's pink)
+    colorRange: [30, 110],
     glbPath: 'assets/models/fungia.glb',
   },
   millepora: {  // fire coral · Body Temp deviation (bipolar, abs)
-    metric: 'bodyTemp',    min: -1.0, max: 1.0,     // narrowed from ±1.5/+2.0
-    scaleMin: 0.95, scaleMax: 1.45,
+    metric: 'bodyTemp',    min: -0.35, max: 0.7,    // fever beyond +0.7 reads as full stress
+    scaleMin: 0.80, scaleMax: 1.55,
     scaleFromAbs: true,
     colorLow: '#c8e0e8', colorHigh: '#f0a098',       // ice blue → peach-blush (no crimson)
     colorMid: '#f4d888',                              // soft gold at baseline
+    colorRange: [-1.0, 1.0],
     glbPath: 'assets/models/millepora.glb',
   },
   pocillopora: {  // fine-branched staghorn · Resp Rate
-    metric: 'respRate',    min: 11,   max: 17,      // was 10-20
-    scaleMin: 0.90, scaleMax: 1.40,
+    metric: 'respRate',    min: 13.2, max: 15.3,
+    scaleMin: 0.75, scaleMax: 1.50,
     colorLow: '#b8d0e0', colorHigh: '#d8b8e0',       // pale sky blue → soft lilac
+    colorRange: [11, 17],
     glbPath: 'assets/models/pocillopora.glb',
   },
 };
@@ -2648,6 +2698,9 @@ function loadCoralTemplate(key) {
               const mats = Array.isArray(o.material) ? o.material : [o.material];
               mats.forEach(m => {
                 if (m.map) { m.map = null; m.needsUpdate = true; }
+                // Simplified GLBs without a roughness map read as glossy
+                // plastic; real coral skeleton is chalky-matte
+                if (!m.roughnessMap) m.roughness = Math.max(m.roughness, 0.95);
               });
             }
           }
@@ -2659,10 +2712,11 @@ function loadCoralTemplate(key) {
         wrapper.name = `coral:${key}`;
         wrapper.add(model);
         coralTemplates.set(key, wrapper);
+        markLoadDone(reg.glbPath);
         resolve(wrapper);
       },
-      undefined,
-      reject
+      (xhr) => reportLoadProgress(reg.glbPath, xhr),
+      (err) => { markLoadDone(reg.glbPath); reject(err); }
     );
   });
 }
@@ -2686,6 +2740,14 @@ async function preloadAllCorals(onProgress) {
 // scale + color and (for Xenia) pulse rate. All 7 species now vary on both
 // dimensions simultaneously; the combined signal reads as the species'
 // "health for this day."
+// S-curve that pushes values away from the middle (0.5 stays 0.5, ends stay
+// put): an average-ish day still lands mid-range, but anything above or
+// below average moves visibly toward its end of the palette and size range.
+function expandContrast(t) {
+  const u = 2 * t - 1;
+  return 0.5 + 0.5 * Math.sign(u) * Math.pow(Math.abs(u), 0.6);
+}
+
 function buildCoralInstance(key, rawValue) {
   const reg = CORAL_REGISTRY[key];
   const template = coralTemplates.get(key);
@@ -2701,15 +2763,15 @@ function buildCoralInstance(key, rawValue) {
     }
   });
 
-  // ─── Normalize raw value to t ∈ [0, 1] ───
+  // ─── Normalize raw value to t ∈ [0, 1], then expand contrast ───
   // Millepora (bodyTemp) uses abs-from-baseline: either direction of deviation
   // drives the stress response. Everything else is a simple (raw-min)/range.
   let t;
   if (reg.scaleFromAbs) {
     const maxAbs = Math.max(Math.abs(reg.min), Math.abs(reg.max));
-    t = Math.min(1, Math.abs(rawValue) / maxAbs);
+    t = expandContrast(Math.min(1, Math.abs(rawValue) / maxAbs));
   } else {
-    t = Math.max(0, Math.min(1, (rawValue - reg.min) / (reg.max - reg.min)));
+    t = expandContrast(Math.max(0, Math.min(1, (rawValue - reg.min) / (reg.max - reg.min))));
   }
 
   // ─── Scale: data-driven size ───
@@ -2723,18 +2785,23 @@ function buildCoralInstance(key, rawValue) {
   // Everything else lerps low→high on t. Xenia intentionally doesn't invert
   // color — high RHR still reads "amber/anxious" so scale + color point the
   // same direction as sensation (small & amber = stressed body).
+  // Colour uses each species' wide colorRange linearly (no contrast curve):
+  // most days land on soft in-between blends rather than the saturated ends.
+  // Size carries the strong day-to-day difference.
+  const [cLo, cHi] = reg.colorRange;
   let color;
   if (reg.colorMid) {
     const mid = new THREE.Color(reg.colorMid);
     if (rawValue < 0) {
-      const tb = Math.min(1, Math.abs(rawValue) / Math.abs(reg.min));
+      const tb = Math.min(1, Math.abs(rawValue) / Math.abs(cLo));
       color = new THREE.Color(reg.colorLow).lerp(mid, 1 - tb);
     } else {
-      const tb = Math.min(1, rawValue / reg.max);
+      const tb = Math.min(1, rawValue / cHi);
       color = mid.clone().lerp(new THREE.Color(reg.colorHigh), tb);
     }
   } else {
-    color = new THREE.Color(reg.colorLow).lerp(new THREE.Color(reg.colorHigh), t);
+    const colorT = Math.max(0, Math.min(1, (rawValue - cLo) / (cHi - cLo)));
+    color = new THREE.Color(reg.colorLow).lerp(new THREE.Color(reg.colorHigh), colorT);
   }
 
   // Apply color with per-mesh life gradient. Real corals aren't painted a
@@ -2757,9 +2824,17 @@ function buildCoralInstance(key, rawValue) {
     );
     o.material.color.copy(perMesh);
     if (o.material.emissive) {
-      // Self-glow so spring pastels stay vivid under water fog. Tips glow
-      // slightly more than bases (small life-spark feel).
-      o.material.emissive.copy(perMesh).multiplyScalar(0.22 + t * 0.05);
+      if (o.material.emissiveMap) {
+        // Tint the GLB's own (very dark) emissive map — a faint life-spark,
+        // slightly stronger at the tips.
+        o.material.emissive.copy(perMesh).multiplyScalar(0.22 + t * 0.05);
+      } else {
+        // Simplified GLBs whose emissive map was dropped (favia, gorgonia,
+        // xenia) had near-black maps (mean linear ≤ 0.003), so they never
+        // glowed. A bare emissive colour would turn the whole coral neon at
+        // night — keep them unlit by emission, as before.
+        o.material.emissive.setRGB(0, 0, 0);
+      }
     }
   });
 
@@ -3043,7 +3118,7 @@ function buildDayCluster(day, pos, isToday = false) {
   // label stay at a fixed size across all days so the reef's "geology"
   // feels consistent while individual days breathe.
   const readinessScore = day?.data?.readiness ?? 65;
-  const readinessT = Math.max(0, Math.min(1, (readinessScore - 50) / 40)); // 50..90 → 0..1
+  const readinessT = expandContrast(Math.max(0, Math.min(1, (readinessScore - 52) / 24))); // personal 52..76 → 0..1
   const clusterScale = 0.55 + readinessT * 1.25;  // 0.55× (poor day) .. 1.80× (great day)
 
   // Substrate rock — a low, half-buried sand-colored mound. Much flatter,
@@ -3184,6 +3259,8 @@ function buildGarden() {
   });
   clusters.length = 0;
   bottleMeshes.length = 0;
+  selectedDay = null;
+  document.querySelector('.bio-panel')?.classList.remove('selected');
 
   const positions = riverPositions(days.length);
   days.forEach((day, i) => {
@@ -3234,16 +3311,8 @@ function addPermanentRocks() {
 // Preload all 7 coral GLBs before building the garden. Update the loading
 // screen subtitle with progress; the ◈ breathing stays in place as ambient.
 const loadingSub = document.getElementById('loading-sub');
-await preloadAllCorals((done, total, key) => {
-  if (loadingSub) {
-    loadingSub.textContent = `growing the reef · ${done} / ${total} · ${key}`;
-  }
-});
+await preloadAllCorals();
 
-// Simulated Oura read — a brief pause on the loading screen so the ritual
-// of "the ring reporting in" is still felt, even without the live API.
-if (loadingSub) loadingSub.textContent = 'reading oura ring · simulated';
-await new Promise(r => setTimeout(r, 700));
 if (loadingSub) loadingSub.textContent = 'settling into the reef';
 
 buildGarden();
@@ -3530,18 +3599,43 @@ for (let i = 0; i < 5; i++) {
 // ═══════════════════════════════════════════════════════════════════════
 // TIME-OF-DAY LIGHTING
 // ═══════════════════════════════════════════════════════════════════════
-// DEBUG: set to true to freeze time at noon for development / visibility
-const FORCE_NOON = true;
-// Demo night override — toggled by the "NIGHT MODE" button in the date
-// panel. Wins over FORCE_NOON so reviewers can flip to night on demand
-// for the jellyfish-lantern demo.
-let demoNightMode = false;
+// The garden follows the visitor's clock: day 07:00–19:00, night otherwise.
+// The NIGHT/DAY button overrides until the clock next crosses 07:00 or
+// 19:00, then the garden returns to following real time.
+const DAY_START_HOUR = 7;
+const DAY_END_HOUR = 19;
+let nightOverride = null;     // null = follow the clock; true/false = manual
+let lastClockNight = null;
+const isClockNight = (h) => h < DAY_START_HOUR || h >= DAY_END_HOUR;
+let isNightNow = false;
+
+function syncNightUI(night) {
+  const btn = document.getElementById('night-mode-btn');
+  if (btn) {
+    btn.textContent = night ? '☀ DAY MODE' : '☾ NIGHT MODE';
+    btn.classList.toggle('active', night);
+  }
+  // Lantern appears only at night
+  if (typeof jellyfishLantern !== 'undefined' && jellyfishLantern) {
+    jellyfishLantern.visible = night;
+  }
+}
 
 function updateLightByTime() {
   const now = new Date();
-  let h = now.getHours() + now.getMinutes()/60;
-  if (demoNightMode) h = 22;       // 10pm — deep night
-  else if (FORCE_NOON) h = 9.5;    // morning — bright but with slightly angled sun
+  const realH = now.getHours() + now.getMinutes()/60;
+  const clockNight = isClockNight(realH);
+  if (lastClockNight !== null && clockNight !== lastClockNight) nightOverride = null;
+  lastClockNight = clockNight;
+  isNightNow = nightOverride ?? clockNight;
+  syncNightUI(isNightNow);
+
+  // The lighting curve below was authored for a 06–18 day; shift real time
+  // so 07–19 maps onto it. A manual "day" at night shows bright morning.
+  let h;
+  if (isNightNow) h = 22;
+  else if (!clockNight) h = realH - (DAY_START_HOUR - 6);
+  else h = 9.5;
   // normalized sun angle: sunrise ~6, sunset ~18
   const dayT = (h - 6) / 12; // 0 at sunrise, 1 at sunset
   const isNight = (h < 6 || h > 18);
@@ -3615,7 +3709,7 @@ function updateLightByTime() {
   scene.fog.color.copy(fogColor);
   renderer.setClearColor(sceneColor);
 
-  return { phase, hour: h };
+  return { phase, hour: realH };
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -3657,38 +3751,92 @@ const canvas = renderer.domElement;
 // Pan: move cam.target. "dx" is screen-right, "dy" is screen-up.
 // For screen-up ("forward"), we use the horizontal projection of camera-forward,
 // so pushing forward doesn't fly you into the seafloor.
-function panCamera(dx, dy) {
+// Keep the explorer over the reef instead of drifting into empty fog
+const PAN_BOUNDS = { minX: -11, maxX: 11, minZ: -25, maxZ: 12 };
+function panCamera(dx, dy, panSpeed = cam.radius * 0.0018) {
   const forward = new THREE.Vector3().subVectors(cam.target, camera.position);
   // project to horizontal
   const horizForward = new THREE.Vector3(forward.x, 0, forward.z).normalize();
   const right = new THREE.Vector3().crossVectors(horizForward, new THREE.Vector3(0,1,0)).normalize();
-  const panSpeed = cam.radius * 0.0018;
   cam.target.addScaledVector(right, -dx * panSpeed);
   cam.target.addScaledVector(horizForward, dy * panSpeed);
+  cam.target.x = Math.max(PAN_BOUNDS.minX, Math.min(PAN_BOUNDS.maxX, cam.target.x));
+  cam.target.z = Math.max(PAN_BOUNDS.minZ, Math.min(PAN_BOUNDS.maxZ, cam.target.z));
+  updateCameraFromOrbit();
+}
+// Grab speed: one pixel of drag ≈ one pixel of world at the target's depth,
+// so the seabed tracks the hand like a map.
+function grabPanSpeed() {
+  const fovRad = THREE.MathUtils.degToRad(camera.fov);
+  return (2 * cam.radius * Math.tan(fovRad / 2)) / window.innerHeight;
+}
+// Orbit so the scene turns the way the mouse moves (grab-the-world feel)
+function orbitCamera(dx, dy) {
+  cam.theta += dx * 0.006;
+  cam.phi = Math.max(cam.minPhi, Math.min(cam.maxPhi, cam.phi - dy * 0.005));
   updateCameraFromOrbit();
 }
 
 // prevent default context menu on right-click so we can pan
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
+// Drag input is queued and eased in each frame, with a short glide after
+// release, so moving through the reef feels like drifting in water.
+const camEase = { panX: 0, panY: 0, orbitX: 0, orbitY: 0 };
+const dragSamples = [];   // recent { t, dx, dy } for release velocity
+function queueDrag(rotate, dx, dy) {
+  if (rotate) { camEase.orbitX += dx; camEase.orbitY += dy; }
+  else { camEase.panX += dx; camEase.panY += dy; }
+  const now = performance.now();
+  dragSamples.push({ t: now, dx, dy });
+  while (dragSamples.length && now - dragSamples[0].t > 100) dragSamples.shift();
+}
+function releaseGlide(rotate) {
+  const now = performance.now();
+  const recent = dragSamples.filter(s => now - s.t < 80);
+  dragSamples.length = 0;
+  if (!recent.length) return;   // hand had already stopped — no glide
+  const gx = recent.reduce((a, s) => a + s.dx, 0) * 1.5;
+  const gy = recent.reduce((a, s) => a + s.dy, 0) * 1.5;
+  if (rotate) { camEase.orbitX += gx; camEase.orbitY += gy; }
+  else { camEase.panX += gx; camEase.panY += gy; }
+}
+function clearCamEase() {
+  camEase.panX = camEase.panY = camEase.orbitX = camEase.orbitY = 0;
+  dragSamples.length = 0;
+}
+function tickCameraEase(dt) {
+  const k = 1 - Math.exp(-dt * 10);
+  const px = camEase.panX * k, py = camEase.panY * k;
+  const ox = camEase.orbitX * k, oy = camEase.orbitY * k;
+  camEase.panX -= px; camEase.panY -= py;
+  camEase.orbitX -= ox; camEase.orbitY -= oy;
+  if (Math.abs(px) + Math.abs(py) > 0.01) panCamera(px, py, grabPanSpeed());
+  if (Math.abs(ox) + Math.abs(oy) > 0.01) orbitCamera(ox, oy);
+}
+
+// Left drag = grab and move through the reef; right drag (or Shift + drag)
+// = turn the view. Both follow the direction of the mouse.
 canvas.addEventListener('mousedown', e => {
   cam.dragging = true;
-  cam.panMode = (e.button === 2) || e.shiftKey; // right click or shift = pan
+  cam.rotateMode = (e.button === 2) || e.shiftKey;
   cam.lastX = e.clientX; cam.lastY = e.clientY;
+  dragSamples.length = 0;
+  canvas.style.cursor = cam.rotateMode ? 'move' : 'grabbing';
 });
-window.addEventListener('mouseup', () => { cam.dragging = false; cam.panMode = false; });
+window.addEventListener('mouseup', () => {
+  if (cam.dragging) {
+    canvas.style.cursor = 'grab';
+    releaseGlide(cam.rotateMode);
+  }
+  cam.dragging = false; cam.rotateMode = false;
+});
 window.addEventListener('mousemove', e => {
   if (!cam.dragging) return;
   const dx = e.clientX - cam.lastX;
   const dy = e.clientY - cam.lastY;
   cam.lastX = e.clientX; cam.lastY = e.clientY;
-  if (cam.panMode) {
-    panCamera(dx, dy);
-  } else {
-    cam.theta -= dx * 0.006;
-    cam.phi = Math.max(cam.minPhi, Math.min(cam.maxPhi, cam.phi - dy * 0.005));
-    updateCameraFromOrbit();
-  }
+  queueDrag(cam.rotateMode, dx, dy);
 });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
@@ -3705,45 +3853,35 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   keyState[e.key.toLowerCase()] = false;
 });
-// Pan loop for keyboard + nav-pad (runs each frame inside animate)
-const navPadState = { forward: false, back: false, left: false, right: false };
+// Keyboard pan (runs each frame inside animate)
 function tickKeyboardPan() {
   const speed = 8;
   let dx = 0, dy = 0;
-  if (keyState['a'] || keyState['arrowleft']  || navPadState.left)  dx += speed;
-  if (keyState['d'] || keyState['arrowright'] || navPadState.right) dx -= speed;
-  if (keyState['w'] || keyState['arrowup']    || navPadState.forward) dy += speed;
-  if (keyState['s'] || keyState['arrowdown']  || navPadState.back)    dy -= speed;
+  if (keyState['a'] || keyState['arrowleft'])  dx += speed;
+  if (keyState['d'] || keyState['arrowright']) dx -= speed;
+  if (keyState['w'] || keyState['arrowup'])    dy += speed;
+  if (keyState['s'] || keyState['arrowdown'])  dy -= speed;
   if (dx !== 0 || dy !== 0) panCamera(dx, dy);
 }
 
-// ═══ nav-pad button hookup (press-and-hold) ═══
-document.querySelectorAll('.nav-btn[data-dir]').forEach(btn => {
-  const dir = btn.getAttribute('data-dir');
-  const start = (e) => { e.preventDefault(); navPadState[dir] = true; btn.classList.add('active'); };
-  const end   = (e) => { navPadState[dir] = false; btn.classList.remove('active'); };
-  btn.addEventListener('mousedown', start);
-  btn.addEventListener('mouseup', end);
-  btn.addEventListener('mouseleave', end);
-  btn.addEventListener('touchstart', start, { passive: false });
-  btn.addEventListener('touchend', end);
-  btn.addEventListener('touchcancel', end);
-});
-
-// reset-view button
-document.getElementById('reset-view').addEventListener('click', async () => {
-  await animateCameraTo(new THREE.Vector3(2.4, 0.85, 9.2), 4.5, 1.35, 2.27, 900);
-});
-
-// touch
+// touch: one finger grabs and moves; two fingers pinch to zoom and
+// slide to turn the view
 let touchState = null;
+function twoFingerState(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return {
+    pinch: true,
+    dist: Math.sqrt(dx*dx + dy*dy),
+    midX: (touches[0].clientX + touches[1].clientX) / 2,
+    midY: (touches[0].clientY + touches[1].clientY) / 2,
+  };
+}
 canvas.addEventListener('touchstart', e => {
   if (e.touches.length === 1) {
     touchState = { x: e.touches[0].clientX, y: e.touches[0].clientY, pinch: false };
   } else if (e.touches.length === 2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    touchState = { pinch: true, dist: Math.sqrt(dx*dx + dy*dy) };
+    touchState = twoFingerState(e.touches);
   }
 }, { passive: true });
 canvas.addEventListener('touchmove', e => {
@@ -3752,23 +3890,22 @@ canvas.addEventListener('touchmove', e => {
     const dx = e.touches[0].clientX - touchState.x;
     const dy = e.touches[0].clientY - touchState.y;
     touchState.x = e.touches[0].clientX; touchState.y = e.touches[0].clientY;
-    cam.theta -= dx * 0.006;
-    cam.phi = Math.max(cam.minPhi, Math.min(cam.maxPhi, cam.phi - dy * 0.005));
-    updateCameraFromOrbit();
+    queueDrag(false, dx, dy);
   } else if (e.touches.length === 2 && touchState.pinch) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const delta = touchState.dist - dist;
-    cam.radius = Math.max(cam.minRadius, Math.min(cam.maxRadius, cam.radius + delta * 0.02));
-    touchState.dist = dist;
-    updateCameraFromOrbit();
+    const next = twoFingerState(e.touches);
+    cam.radius = Math.max(cam.minRadius, Math.min(cam.maxRadius, cam.radius + (touchState.dist - next.dist) * 0.02));
+    queueDrag(true, next.midX - touchState.midX, next.midY - touchState.midY);
+    touchState = next;
   }
 }, { passive: true });
-canvas.addEventListener('touchend', () => { touchState = null; });
+canvas.addEventListener('touchend', () => {
+  if (touchState) releaseGlide(touchState.pinch);
+  touchState = null;
+});
 
 // Dive animation
 function animateCameraTo(target, radius, phi, theta, duration = 1200) {
+  clearCamEase();
   const start = {
     tx: cam.target.x, ty: cam.target.y, tz: cam.target.z,
     r: cam.radius, phi: cam.phi, theta: cam.theta
@@ -3859,16 +3996,61 @@ canvas.addEventListener('click', e => {
   const bottle = getBottleAtPointer(e.clientX, e.clientY);
   if (bottle) handleBottleClick(bottle);
 });
+// Clusters are picked with a bounding sphere each (cheap, and forgiving of
+// the gaps between corals) rather than raycasting every coral mesh.
+const _clusterSphere = new THREE.Sphere();
+function getClusterAtPointer(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  mouseVec.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouseVec, camera);
+  let best = null, bestDist = Infinity;
+  const hit = new THREE.Vector3();
+  for (const c of clusters) {
+    _clusterSphere.center.set(c.position.x, c.position.y + 0.3, c.position.z);
+    _clusterSphere.radius = 0.65;
+    if (raycaster.ray.intersectSphere(_clusterSphere, hit)) {
+      const d = hit.distanceTo(raycaster.ray.origin);
+      if (d < bestDist) { bestDist = d; best = c; }
+    }
+  }
+  return best;
+}
+
+// Diving remembers where the visitor was, so "back to the garden" returns
+// them there at eye level rather than snapping to the shrine.
+const GARDEN_EYE_PHI = 1.35;
+let divedCluster = null;
+let preDiveView = null;
+async function diveToCluster(cluster) {
+  if (!divedCluster) {
+    preDiveView = { target: cam.target.clone(), radius: cam.radius, theta: cam.theta };
+  }
+  divedCluster = cluster;
+  selectDay(cluster.userData.day);
+  const target = new THREE.Vector3(cluster.position.x, cluster.position.y + 0.5, cluster.position.z);
+  await animateCameraTo(target, 3, 1.0, cam.theta);
+}
+async function returnToGarden() {
+  const view = preDiveView || { target: new THREE.Vector3(2.4, 0.85, 9.2), radius: 4.5, theta: 2.27 };
+  divedCluster = null;
+  preDiveView = null;
+  selectDay(null);
+  await animateCameraTo(view.target, Math.max(view.radius, 4.5), GARDEN_EYE_PHI, view.theta);
+}
+
 canvas.addEventListener('dblclick', async e => {
   const bottle = getBottleAtPointer(e.clientX, e.clientY);
-  if (bottle) {
-    // dive to that cluster
-    const cluster = bottle.userData.clusterGroup;
-    const target = new THREE.Vector3(cluster.position.x, cluster.position.y + 0.5, cluster.position.z);
-    await animateCameraTo(target, 3, 1.0, cam.theta);
-  } else if (cam.radius < 4) {
-    // zoom back out to default shrine-focused view
-    await animateCameraTo(new THREE.Vector3(2.4, 0.85, 9.2), 4.5, 1.35, 2.27);
+  const cluster = bottle ? bottle.userData.clusterGroup : getClusterAtPointer(e.clientX, e.clientY);
+  if (cluster && cluster !== divedCluster) {
+    // dive to that cluster and show that day's seven readings in the panel
+    await diveToCluster(cluster);
+  } else if (divedCluster) {
+    // the same cluster again, or open water: surface back into the garden
+    await returnToGarden();
+  } else {
+    // open water while already in the garden: back to the shrine
+    await animateCameraTo(new THREE.Vector3(2.4, 0.85, 9.2), 4.5, GARDEN_EYE_PHI, 2.27);
   }
 });
 
@@ -4065,6 +4247,27 @@ The current is kind. Go far today — even the deep holds no danger.`;
   }
 }
 
+// Poem generation takes a few seconds, so it starts in the background as
+// soon as the garden opens; by the time the visitor reaches the shrine the
+// poem is usually ready. A generated poem is sealed into the cache here.
+let omikujiPending = null;
+function prefetchOmikuji() {
+  const day = days[days.length - 2] || days[days.length - 1];
+  if (!day || omikujiCache[day.date] || omikujiPending) return omikujiPending;
+  const rank = rankFromScore(computeOmikujiScore(day.data));
+  omikujiPending = generateOmikujiPoem(rank, day.data).then(async (r) => {
+    const result = { rank: rank.rank, romaji: rank.romaji, poem: r.poem, interp: r.interp };
+    // Fallback poems aren't cached, so the next draw retries Claude
+    if (!r.fallback) {
+      omikujiCache[day.date] = result;
+      await saveOmikuji();
+    }
+    omikujiPending = null;
+    return result;
+  });
+  return omikujiPending;
+}
+
 async function drawOmikuji() {
   // use YESTERDAY's data (by design: signs read the past body)
   const today = days[days.length - 1];
@@ -4089,20 +4292,14 @@ async function drawOmikuji() {
     return;
   }
 
-  // compute
+  // compute (or join the request already started at page load)
   const score = computeOmikujiScore(yesterday.data);
   const rank = rankFromScore(score);
 
   displayOmikuji({ rank: rank.rank, romaji: rank.romaji, poem: null, interp: null, loading: true, date: targetDate, dayNum, totalDays, signature });
   showModal(shrineOverlay);
 
-  const { poem, interp, fallback } = await generateOmikujiPoem(rank, yesterday.data);
-  const result = { rank: rank.rank, romaji: rank.romaji, poem, interp };
-  // Only seal generated poems — a fallback draw retries Claude next time
-  if (!fallback) {
-    omikujiCache[targetDate] = result;
-    await saveOmikuji();
-  }
+  const result = await prefetchOmikuji();
   displayOmikuji({ ...result, date: targetDate, dayNum, totalDays, signature });
 }
 
@@ -4157,6 +4354,24 @@ rankOverlay.addEventListener('click', e => { if (e.target === rankOverlay) hideM
 // ═══ Jellyfish Lantern — tender sleep guide + deep-sea bedtime tale ═══
 const lanternOverlay = document.getElementById('lantern-overlay');
 const lanternCache = {};  // date → { guide, tale }
+let lanternPending = null;
+// The lantern speaks to the day just lived, from waking until bedtime.
+// Evening (after 07:00) that's today; in the small hours before 07:00 the
+// waking day was yesterday.
+function lanternDay() {
+  const beforeDawn = new Date().getHours() < DAY_START_HOUR;
+  return beforeDawn ? (days[days.length - 2] || days[days.length - 1]) : days[days.length - 1];
+}
+function prefetchLantern() {
+  const viewDay = lanternDay();
+  if (!viewDay || lanternCache[viewDay.date] || lanternPending) return lanternPending;
+  lanternPending = generateLanternGuidance(viewDay.data).then((result) => {
+    if (!result.fallback) lanternCache[viewDay.date] = result;
+    lanternPending = null;
+    return result;
+  });
+  return lanternPending;
+}
 
 // Fallback guidance (and a generic bedtime tale) when Claude API is unavailable.
 // Guide text is still data-aware: three variants based on fatigue / fever / calm.
@@ -4187,22 +4402,28 @@ function lanternFallback(data) {
 
 async function generateLanternGuidance(dayData) {
   try {
-    const prompt = `You are the voice of a small jellyfish lantern in a deep-sea coral garden. Based on last night's body data, write two pieces of tonight's whisper: a gentle sleep guide AND a short deep-sea bedtime tale.
+    const prompt = `You are the voice of a small jellyfish lantern in a deep-sea coral garden. The person is about to sleep. Based on the day they have just lived — from waking this morning until now — write two pieces of tonight's whisper: a gentle sleep guide AND a short deep-sea bedtime tale.
 
-Body data (most recent complete day):
+How they woke this morning (the night's rest behind this day):
 - Sleep score: ${Math.round(dayData.sleep)}/100
+- Deep sleep: ${Math.round(dayData.deepSleep)} min
 - HRV: ${Math.round(dayData.hrv)} ms
 - Resting heart rate: ${Math.round(dayData.rhr)} bpm
-- Activity: ${Math.round(dayData.activity)}/100
-- Deep sleep: ${Math.round(dayData.deepSleep)} min
 - Body temperature deviation: ${dayData.bodyTemp >= 0 ? '+' : ''}${dayData.bodyTemp.toFixed(1)}°C
 - Respiratory rate: ${dayData.respRate.toFixed(1)}/min
-- Overall readiness: ${Math.round(dayData.readiness)}/100
+
+How the waking day moved:
+- Activity score: ${Math.round(dayData.activity)}/100
+- Steps: ${dayData.steps ?? '—'}
+- Active minutes (brisk or harder): ${dayData.activeMinutes ?? '—'}
+- Sedentary time: ${dayData.sedentaryHours ?? '—'} h
+- Time under high stress: ${dayData.stressMinutes ?? '—'} min
+- Time in restorative calm: ${dayData.restoreMinutes ?? '—'} min
 
 GUIDE requirements:
 - English, 90–130 words, 4–5 sentences
 - Tender, poetic tone — as if a lantern is whispering to someone about to sleep
-- Reflect the actual state of the body data (tired / balanced / slightly fevered / racing heart / etc.)
+- Reflect the day as it was actually lived (a long sedentary day, a restless stressed day, a full active day, a slow recovering day, slightly fevered, etc.)
 - Offer soft, concrete suggestions: breath pacing, a pre-sleep ritual, body posture, mental ease
 - Use deep-sea imagery sparingly (reef, tide, sea star, coral, current) as metaphor
 - No medical language, no imperative commands, no list markers, no headings
@@ -4213,6 +4434,7 @@ TALE requirements:
 - Soothing, lullaby cadence — ends with a character settling into rest, or a moment of quiet
 - Third-person or observer voice; no dialogue heavier than one or two short lines
 - No violence, no dramatic tension — just a small gentle image to carry into sleep
+- Let the tale's mood quietly mirror the day just lived (a busy, far-ranging day → a traveller finally coming home to rest; a stressed day → a current that slowly calms; a still, sedentary day → a gentle drift; a warm, feverish day → cool water)
 
 Return STRICT JSON with no other text and no markdown:
 { "guide": "...", "tale": "..." }`;
@@ -4238,8 +4460,7 @@ Return STRICT JSON with no other text and no markdown:
 }
 
 async function drawLanternGuidance() {
-  // Base on the most recent complete day — yesterday, as with live Oura
-  const viewDay = days[days.length - 2] || days[days.length - 1];
+  const viewDay = lanternDay();
   if (!viewDay) return;
   const key = viewDay.date;
 
@@ -4267,8 +4488,7 @@ async function drawLanternGuidance() {
   taleSection.style.display = 'none';
   showModal(lanternOverlay);
 
-  const result = await generateLanternGuidance(viewDay.data);
-  if (!result.fallback) lanternCache[key] = result;
+  const result = await prefetchLantern();
   loadingEl.style.display = 'none';
   guideEl.textContent = result.guide;
   taleEl.textContent = result.tale;
@@ -4409,12 +4629,29 @@ document.getElementById('reader-edit').addEventListener('click', () => {
 // ═══════════════════════════════════════════════════════════════════════
 // UI PANEL UPDATES
 // ═══════════════════════════════════════════════════════════════════════
+// A double-clicked cluster's day (selectedDay, declared with the other
+// global state) replaces the default reading until the visitor returns.
+function selectDay(day) {
+  selectedDay = day;
+  updateMetricsPanel();
+  const panel = document.querySelector('.bio-panel');
+  panel.classList.toggle('selected', !!day);
+  if (day) {
+    panel.classList.remove('flash');
+    void panel.offsetWidth;   // restart the flash animation
+    panel.classList.add('flash');
+  }
+}
+
 function updateMetricsPanel() {
-  // Show YESTERDAY'S entry, as live Oura did — today's sleep session and
+  // Default: YESTERDAY'S entry, as live Oura did — today's sleep session and
   // activity aren't complete yet, and yesterday is the omikuji's frame.
-  const viewDay = days[days.length - 2] || days[days.length - 1];
+  const viewDay = selectedDay || days[days.length - 2] || days[days.length - 1];
   const isToday = viewDay.date === todayISO;
-  document.getElementById('bio-date-label').textContent = isToday ? 'Today' : 'Yesterday';
+  const isYesterday = viewDay === days[days.length - 2];
+  const dayNum = days.indexOf(viewDay) + 1;
+  document.getElementById('bio-date-label').textContent =
+    isToday ? 'Today' : isYesterday ? 'Yesterday' : `Day ${dayNum} of ${days.length}`;
   document.getElementById('bio-date').textContent = viewDay.date;
 
   const srcEl = document.getElementById('bio-source');
@@ -4469,6 +4706,8 @@ document.getElementById('oura-btn').addEventListener('click', async () => {
   updateBottleHint();
 });
 
+document.getElementById('bio-back').addEventListener('click', () => returnToGarden());
+
 // ═══ Info modals: Interaction Guide + Coral Mapping ═══
 const interactionOverlay = document.getElementById('interaction-overlay');
 const mappingOverlay     = document.getElementById('mapping-overlay');
@@ -4507,12 +4746,17 @@ window.__garden = {
 // ═══════════════════════════════════════════════════════════════════════
 const clock = new THREE.Clock();
 
+let lastFrameMs = performance.now();
 function animate() {
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
   const dt = clock.getDelta();
+  const nowMs = performance.now();
+  const frameDt = Math.min(0.05, (nowMs - lastFrameMs) / 1000);
+  lastFrameMs = nowMs;
 
-  // keyboard-driven camera panning
+  // camera: eased drag input + keyboard panning
+  tickCameraEase(frameDt);
   tickKeyboardPan();
 
   // particles drift upward
@@ -4772,19 +5016,13 @@ setInterval(() => {
   updateTimeDisplay(phase, hour);
 }, 60000);
 
-// Night mode toggle — flips demoNightMode, re-runs lighting, updates label.
-// Also toggles the jellyfish lantern visibility (see lantern code below).
+// Manual override of the clock-driven day/night (see updateLightByTime)
 const nightModeBtn = document.getElementById('night-mode-btn');
 nightModeBtn.addEventListener('click', () => {
-  demoNightMode = !demoNightMode;
-  nightModeBtn.textContent = demoNightMode ? '☀ DAY MODE' : '☾ NIGHT MODE';
-  nightModeBtn.classList.toggle('active', demoNightMode);
+  nightOverride = !isNightNow;
   const { phase, hour } = updateLightByTime();
   updateTimeDisplay(phase, hour);
-  // Lantern appears only at night
-  if (typeof jellyfishLantern !== 'undefined' && jellyfishLantern) {
-    jellyfishLantern.visible = demoNightMode;
-  }
+  if (isNightNow) prefetchLantern();
 });
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -4811,6 +5049,11 @@ async function cinematicIntro() {
 // ═══════════════════════════════════════════════════════════════════════
 animate();
 
+// Start writing today's omikuji (and tonight's lantern whisper) now, so
+// they're ready by the time the visitor clicks
+prefetchOmikuji();
+if (isNightNow) prefetchLantern();
+
 // handle window resize
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -4818,14 +5061,14 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// hide loading screen after short delay to let scene settle
+// hide loading screen after a beat so the first frames can settle
 setTimeout(async () => {
   document.getElementById('loading').classList.add('hide');
   if (sessionState.firstOpenToday) {
     await cinematicIntro();
   }
   await markSessionOpened();
-}, 1200);
+}, 300);
 
 </script>
 </body>

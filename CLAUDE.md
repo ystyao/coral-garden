@@ -87,17 +87,18 @@ coral-garden/
 │                                    (未来计划也放 ouraMock.js / dayLedger.js)
 ├── assets/
 │   ├── hokora.glb                 # 原始 36MB 源文件（可选删除）
-│   ├── hokora_opt.glb             # ✅ 压缩后 2.6MB，index.html 引用此路径
+│   ├── hokora_opt.glb             # ✅ 1.1MB / 10 万面，index.html 引用此路径
 │   ├── favia.glb / gorgonia.glb / ... / pocillopora.glb
 │   │                              # 原始珊瑚源文件（488MB，可选删除）
 │   └── models/
-│       ├── favia.glb              # ✅ 压缩后 7.0MB
-│       ├── gorgonia.glb           # ✅ 压缩后 3.8MB
-│       ├── xenia.glb              # ✅ 压缩后 11.2MB (tex 512, ratio 0.2)
-│       ├── acropora.glb           # ✅ 压缩后 1.8MB
-│       ├── fungia.glb             # ✅ 压缩后 1.5MB
-│       ├── millepora.glb          # ✅ 压缩后 2.2MB
-│       └── pocillopora.glb        # ✅ 压缩后 6.1MB
+│       ├── favia.glb              # ✅ 1.1MB / 15 万面（脑回纹需要更多面）
+│       ├── gorgonia.glb           # ✅ 2.1MB / 13.8 万面（位置焊接后简化）
+│       ├── xenia.glb              # ✅ 1.8MB / 11 万面（位置焊接后简化）
+│       ├── acropora.glb           # ✅ 0.4MB / 4 万面
+│       ├── fungia.glb             # ✅ 0.4MB / 4 万面
+│       ├── millepora.glb          # ✅ 0.5MB / 4 万面
+│       └── pocillopora.glb        # ✅ 0.5MB / 4 万面
+│                                  # 合计 7.8MB（原 35MB）；每撮约 56 万面
 ├── CLAUDE.md                      # 本文档
 ├── startup_prompt.md              # VS Code 首次启动 Claude Code 的引导 prompt
 └── memory/                        # Claude Code 的 memory system (user/feedback/project/ref)
@@ -202,6 +203,22 @@ coral-garden/
 | **Fungia 圆盘珊瑚** | Deep Sleep (0-180 min) | 0.9× → 1.3× | 低：灰白 `#b5a894`；高：玫瑰粉 `#c48a82` | 低：盘面光滑；高：辐射条纹密集 |
 | **Millepora 火珊瑚** | Body Temp Dev (-1.5 to +2.0 °C) | 固定 | 降温：冷白 `#c8d0c8`；正常：金黄 `#d4a858`；升温：朱红 `#a8513a` | 升温：表面微凸起（刺状纹理更显） |
 | **Pocillopora 细枝鹿角珊瑚** | Respiratory Rate (10-20) | 0.9× → 1.1× | 低：灰蓝 `#8a9ca8`；高：粉白 `#d4b8b0` | **分枝密度 = 呼吸率**（低频稀疏，高频密集如支气管树） |
+
+### 当前实现（2026-10 调整，以代码 `CORAL_REGISTRY` 为准）
+
+- 上表是最初的设计稿。为了让每撮珊瑚从远处也能分辨，现在各指标的
+  `min/max` 取 **Lorriane 个人一年数据的 5%–95% 分位**（例：RHR 57–68、
+  呼吸 13.2–15.3、睡眠 66–89），再经 `expandContrast()` S 曲线把中间值推向两端；
+  尺寸范围约 0.7×–1.75×；整撮大小按 readiness 个人范围 52–76 映射
+- 换数据源（真实 Oura / 其他人）时需按新的个人分布重设 `min/max`
+- 配色保持最初的搭配（Lorriane 明确偏好，试过改 favia 为冷色 / 米色均被否决）：
+  favia 鼠尾草青 `#8ab4a8` → 蜂蜜黄 `#f0d870`，acropora 嫩青柠 `#d8e088` → 珊瑚桃 `#f8a890`
+- **颜色与大小分开映射**：大小用个人分位 `min/max` + `expandContrast()`
+  （从远处区分各撮靠大小）；颜色用每种珊瑚原来的宽区间 `colorRange`、线性、
+  不加对比曲线 —— 颜色被推到两端时饱和度高、粉色扎堆、显得"塑料"，
+  Lorriane 明确更喜欢中间的柔和混色（米绿、灰紫等）
+- fungia 高分端改为灰玫瑰 `#c89a9c`（原 `#e8b0c0` 与 gorgonia 樱花粉太像）
+- 没有 roughnessMap 的材质粗糙度至少 0.95，避免简化模型的塑料高光
 
 ### 通用数据驱动逻辑
 
@@ -375,7 +392,18 @@ Position layout (top-down view):
 
 每个 GLB 模型必须满足：
 
-- **多边形预算**: ≤ 30,000 triangles（用 `@gltf-transform/cli optimize` 压缩）
+- **多边形预算**: 目标 ~40,000 triangles；细节决定识别度的物种可放宽
+  （favia 脑回纹 15 万、gorgonia 细枝 / xenia 羽状触手 ~12 万）。每天 30 撮
+  同屏，面数直接决定加载时间与帧率 —— 2026-10 前的模型 20–113 万面/个，
+  导致加载慢、拖动卡顿
+- **三角形汤模型**（xenia、gorgonia）：法线/UV 接缝让 weld 合并不了，常规
+  simplify 卡在约一半。做法：只保留 POSITION → weld → simplify
+  (lockBorder false) → 重算 normals → 去掉贴图并设 metallic 0 /
+  roughness 0.8 / emissive 0（app 本来就会剥掉 baseColor 贴图）
+- **自发光陷阱**：原始 GLB 的 emissive 贴图几乎全黑（平均线性亮度 0–0.02），
+  `buildCoralInstance` 设置的 `emissive = color × 0.22` 被贴图压到近零。简化时
+  若丢了 emissive 贴图，整株会按 22% 自发光 → 夜间荧光色。现在代码对**没有
+  emissiveMap 的材质把 emissive 置 0**，保持原样
 - **文件大小**: ≤ 5 MB（Draco 压缩 + WebP 纹理）
 - **朝向**: 模型面向 +Z，y 轴向上
 - **尺寸**: 高度约 1.0 单位（Three.js 单位 = 米，代码里会缩放）
@@ -473,9 +501,13 @@ GLB 没有 polyp/arm 子节点，所以不做每触手独立动画。整体呼�
 
 ### 预加载 & 进度
 
-启动时 `await preloadAllCorals(onProgress)` —— Promise.all 并行 7 个 GLB，
-每加载完一个触发 callback。onProgress 里更新 `#loading-sub` 副标题为
-"growing the reef · 3 / 7 · favia"。加载完再 `buildGarden()`。
+启动时 `await preloadAllCorals()` —— Promise.all 并行 7 个 GLB。加载屏
+（深海渐变底 + 标题 + 进度条）按**实际下载字节**汇总 7 个珊瑚 + Hokora
+的进度（`reportLoadProgress` / `markLoadDone`），副标题显示
+"growing the reef · 64%"。加载完再 `buildGarden()`。
+
+签诗与灯笼文本在页面打开时即后台预生成（`prefetchOmikuji` /
+`prefetchLantern`），访客点击时通常已就绪；生成成功的签诗写入缓存。
 
 ---
 
@@ -597,10 +629,14 @@ function updateLightByTime() {
 - **不要做太频繁的更新**（浪费性能）
 - 平滑过渡：两个时段之间用 lerp 避免跳变（过渡时长 5 分钟）
 
-### 开发模式
+### 昼夜自动切换（当前实现）
 
-`const FORCE_NOON = false;` 改为 `true` 会锁定在某个时段方便开发。
-生产环境必须是 `false`。
+- 跟随访客本地时间：**07:00–19:00 白天，其余时间自动进入夜间模式**
+  （`DAY_START_HOUR` / `DAY_END_HOUR`）。夜间模式 = 夜间光照 + 水母灯笼出现
+- 白天光照曲线原本按 06–18 编写，代码里把真实时间平移 1 小时映射上去
+- NIGHT / DAY 按钮是**手动覆盖**（`nightOverride`），时钟下一次跨过
+  07:00 或 19:00 时自动恢复跟随真实时间
+- `FORCE_NOON` 已移除
 
 ---
 
@@ -789,8 +825,9 @@ Hokora 旋转了 `-0.7` 弧度，它的正面朝向世界方向 `(-0.644, 0, 0.7
 
 ### 交互
 
-- 左键拖动: orbit rotate
-- 右键拖动: pan
+- 左键拖动: **grab 平移**（像拖地图，海床跟手移动；范围限制在礁区 `PAN_BOUNDS` 内）
+- 右键拖动 / Shift + 拖动: orbit 旋转（方向跟随鼠标）
+- 触屏: 单指平移；双指捏合缩放 + 双指滑动旋转
 - 滚轮: zoom（radius 2.5–22）
 - WASD / 方向键: 平移相机
 - 底部 nav-pad: ▲◀⊙▶▼ 按钮
@@ -828,6 +865,11 @@ gitignored 的 `ouraConfig.local.js`，线上会 404 导致整个模块加载失
 - `dataSource = 'simulated'`，day.source = `'oura-sim'`；bio-panel 显示昨天
 - `DATA_VERSION` 变化时清空 omikuji 缓存
 - 改了模拟器参数就 bump `DATA_VERSION`
+- 另有"清醒白天"字段（steps / activeMinutes / sedentaryHours / stressMinutes /
+  restoreMinutes，对应 Oura daily_activity + daily_stress），**在 7 项珊瑚指标
+  之后才抽随机数**，所以加字段不改变珊瑚与签号。不驱动珊瑚，只给水母灯笼用
+- 水母灯笼读"刚过完的这一天"（醒来 → 睡前）：07:00 后用今天的条目，
+  07:00 前用昨天的；签文仍读昨天
 - Claude 调用（签诗 / 灯笼 / 共振）统一走同源 `POST /api/claude`
   （`api/claude.js`，Vercel Function），key 在服务器环境变量
   `ANTHROPIC_API_KEY`；模型默认 `claude-sonnet-5-5`（`CLAUDE_MODEL` 可覆盖，
